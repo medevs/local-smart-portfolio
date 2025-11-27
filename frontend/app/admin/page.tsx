@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import {
   Upload,
   FileText,
   Trash2,
   Database,
   RefreshCw,
-  CheckCircle,
   XCircle,
   Loader2,
   Shield,
@@ -21,6 +21,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { api, DocumentInfo, KBStats, HealthStatus } from "@/lib/api";
 
 // Admin password from environment variable
@@ -139,8 +140,6 @@ export default function AdminPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   // Check session on mount
   useEffect(() => {
@@ -152,22 +151,22 @@ export default function AdminPage() {
   // Fetch all data - must be declared before conditional returns
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) return; // Guard inside callback
-    
+
     setIsLoading(true);
-    setError(null);
-    
+
     try {
       const [healthData, docsData, statsData] = await Promise.all([
         api.getHealth().catch(() => null),
         api.getDocuments().catch(() => []),
         api.getStats().catch(() => null),
       ]);
-      
+
       setHealth(healthData);
       setDocuments(docsData);
       setStats(statsData);
-    } catch {
-      setError("Failed to connect to backend. Make sure it's running on port 8000.");
+    } catch (error) {
+      toast.error("Failed to connect to backend. Make sure it's running on port 8000.");
+      console.error("Dashboard error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -201,8 +200,6 @@ export default function AdminPage() {
 
     setIsUploading(true);
     setUploadProgress(0);
-    setError(null);
-    setSuccess(null);
 
     // Simulate progress (real progress would need backend support)
     const progressInterval = setInterval(() => {
@@ -216,14 +213,14 @@ export default function AdminPage() {
       setUploadProgress(100);
       
       if (result.success) {
-        setSuccess(`Document "${file.name}" uploaded successfully! (${result.document?.chunk_count || 0} chunks)`);
+        toast.success(`Document "${file.name}" uploaded successfully! (${result.document?.chunk_count || 0} chunks)`);
         fetchData(); // Refresh the list
       } else {
-        setError(result.message || result.error || "Upload failed");
+        toast.error(result.message || result.error || "Upload failed");
       }
     } catch (err) {
       clearInterval(progressInterval);
-      setError(err instanceof Error ? err.message : "Upload failed");
+      toast.error(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -236,15 +233,12 @@ export default function AdminPage() {
   const handleDelete = async (documentId: string, filename: string) => {
     if (!confirm(`Are you sure you want to delete "${filename}"?`)) return;
 
-    setError(null);
-    setSuccess(null);
-
     try {
       await api.deleteDocument(documentId);
-      setSuccess(`Document "${filename}" deleted successfully`);
+      toast.success(`Document "${filename}" deleted successfully`);
       fetchData(); // Refresh the list
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Delete failed");
+      toast.error(err instanceof Error ? err.message : "Delete failed");
     }
   };
 
@@ -296,19 +290,6 @@ export default function AdminPage() {
         </p>
       </div>
 
-      {/* Status Messages */}
-      {error && (
-        <div className="bg-red-900/30 border border-red-700 rounded-lg p-4 flex items-center gap-3">
-          <XCircle className="w-5 h-5 text-red-400" />
-          <span className="text-red-200">{error}</span>
-        </div>
-      )}
-      {success && (
-        <div className="bg-green-900/30 border border-green-700 rounded-lg p-4 flex items-center gap-3">
-          <CheckCircle className="w-5 h-5 text-green-400" />
-          <span className="text-green-200">{success}</span>
-        </div>
-      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -439,8 +420,19 @@ export default function AdminPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center justify-between p-4 rounded-lg bg-amber-950/30 border border-amber-800/30">
+                  <div className="flex items-center gap-4 flex-1">
+                    <Skeleton className="w-8 h-8 rounded" />
+                    <div className="space-y-2 flex-1">
+                      <Skeleton className="h-4 w-48" />
+                      <Skeleton className="h-3 w-64" />
+                    </div>
+                  </div>
+                  <Skeleton className="w-20 h-8" />
+                </div>
+              ))}
             </div>
           ) : documents.length === 0 ? (
             <div className="text-center py-8 text-amber-200/60">

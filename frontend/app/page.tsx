@@ -1,8 +1,8 @@
 "use client";
 
-import { Metadata } from "next";
 import { motion } from "framer-motion";
 import { Code2 } from "lucide-react";
+import { Suspense } from "react";
 import {
   Hero,
   SkillsCard,
@@ -10,6 +10,7 @@ import {
   ProjectCard,
   BenchmarksCard,
 } from "@/components/sections";
+import { ProjectCardSkeleton } from "@/components/ui/skeleton";
 import { projects } from "@/data/projects";
 
 /**
@@ -40,9 +41,11 @@ export default function HomePage() {
           Featured Projects
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {featuredProjects.map((project, index) => (
-            <ProjectCard key={project.title} project={project} index={index} />
-          ))}
+          <Suspense fallback={<ProjectCardSkeleton />}>
+            {featuredProjects.map((project, index) => (
+              <ProjectCard key={project.title} project={project} index={index} />
+            ))}
+          </Suspense>
         </div>
       </section>
 

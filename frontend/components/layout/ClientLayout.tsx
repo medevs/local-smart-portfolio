@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { Header } from "./Header";
 import { Footer } from "./Footer";
 import { ChatWidget, ChatFloatingButton } from "@/components/chat";
@@ -26,9 +27,14 @@ export function ClientLayout({ children }: ClientLayoutProps) {
       <Header onChatOpen={() => setIsChatOpen(true)} />
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <motion.main
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+        className="container mx-auto px-4 py-8"
+      >
         {children}
-      </main>
+      </motion.main>
 
       {/* Footer */}
       <Footer />

@@ -8,10 +8,9 @@ import { ChatMessage as ChatMessageType } from "@/types";
 
 interface ChatMessageProps {
   message: ChatMessageType;
-  index: number;
 }
 
-export function ChatMessage({ message, index }: ChatMessageProps) {
+export function ChatMessage({ message }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
 
   const copyToClipboard = () => {

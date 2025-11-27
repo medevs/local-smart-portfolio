@@ -10,6 +10,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ChatMessageSkeleton } from "@/components/ui/skeleton";
 import { useChat } from "@/hooks";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
@@ -29,6 +30,8 @@ export function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
     sendMessage,
     messagesEndRef,
   } = useChat();
+
+  const isLoading = messages.length === 0 && !isTyping;
 
   return (
     <AnimatePresence>
@@ -65,10 +68,16 @@ export function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
 
             <ScrollArea className="flex-1 p-4">
               <div className="space-y-4">
-                {messages.map((message, index) => (
-                  <ChatMessage key={index} message={message} index={index} />
-                ))}
-                {isTyping && <TypingIndicator />}
+                {isLoading ? (
+                  <ChatMessageSkeleton />
+                ) : (
+                  <>
+                    {messages.map((message, index) => (
+                      <ChatMessage key={index} message={message} />
+                    ))}
+                    {isTyping && <TypingIndicator />}
+                  </>
+                )}
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
