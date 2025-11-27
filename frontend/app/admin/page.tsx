@@ -128,18 +128,11 @@ function PasswordGate({ onSuccess }: { onSuccess: () => void }) {
  * - View system health status
  */
 export default function AdminPage() {
-  // Auth state
+  // Auth state - must be first
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
 
-  // Check session on mount
-  useEffect(() => {
-    const auth = sessionStorage.getItem("admin_authenticated");
-    setIsAuthenticated(auth === "true");
-    setAuthChecked(true);
-  }, []);
-
-  // State
+  // Dashboard state - ALL hooks must be declared before any returns
   const [documents, setDocuments] = useState<DocumentInfo[]>([]);
   const [stats, setStats] = useState<KBStats | null>(null);
   const [health, setHealth] = useState<HealthStatus | null>(null);
@@ -148,6 +141,44 @@ export default function AdminPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Check session on mount
+  useEffect(() => {
+    const auth = sessionStorage.getItem("admin_authenticated");
+    setIsAuthenticated(auth === "true");
+    setAuthChecked(true);
+  }, []);
+
+  // Fetch all data - must be declared before conditional returns
+  const fetchData = useCallback(async () => {
+    if (!isAuthenticated) return; // Guard inside callback
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const [healthData, docsData, statsData] = await Promise.all([
+        api.getHealth().catch(() => null),
+        api.getDocuments().catch(() => []),
+        api.getStats().catch(() => null),
+      ]);
+      
+      setHealth(healthData);
+      setDocuments(docsData);
+      setStats(statsData);
+    } catch {
+      setError("Failed to connect to backend. Make sure it's running on port 8000.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated]);
+
+  // Fetch data when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchData();
+    }
+  }, [isAuthenticated, fetchData]);
 
   // Show loading while checking auth
   if (!authChecked) {
@@ -162,32 +193,6 @@ export default function AdminPage() {
   if (!isAuthenticated) {
     return <PasswordGate onSuccess={() => setIsAuthenticated(true)} />;
   }
-
-  // Fetch all data
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const [healthData, docsData, statsData] = await Promise.all([
-        api.getHealth().catch(() => null),
-        api.getDocuments().catch(() => []),
-        api.getStats().catch(() => null),
-      ]);
-      
-      setHealth(healthData);
-      setDocuments(docsData);
-      setStats(statsData);
-    } catch (err) {
-      setError("Failed to connect to backend. Make sure it's running on port 8000.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
 
   // Handle file upload
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
