@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     
     # Ollama Settings
     ollama_base_url: str = Field(default="http://localhost:11434")
-    ollama_model: str = Field(default="qwen2.5:3b")
+    ollama_model: str = Field(default="llama3.2:3b")
     
     # ChromaDB Settings
     chroma_persist_dir: str = Field(default="./data/chroma_db")

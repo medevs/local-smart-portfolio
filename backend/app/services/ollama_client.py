@@ -17,7 +17,7 @@ class OllamaClient:
         settings = get_settings()
         self.base_url = base_url or settings.ollama_base_url
         self.model = model or settings.ollama_model
-        self.timeout = httpx.Timeout(120.0, connect=10.0)
+        self.timeout = httpx.Timeout(180.0, connect=30.0)
         
     async def check_connection(self) -> bool:
         """Check if Ollama is available."""
@@ -42,30 +42,43 @@ class OllamaClient:
             logger.error(f"Failed to list models: {e}")
             return []
     
-    def _build_prompt(self, query: str, context: str, history: list = None) -> str:
-        """Build the prompt with context and history."""
-        system_prompt = """You are an AI assistant for a developer's portfolio website. 
-You help visitors learn about the developer's skills, projects, homelab setup, and experience.
-Use the provided context to answer questions accurately and helpfully.
-If the context doesn't contain relevant information, say so honestly but try to be helpful.
-Keep responses concise but informative."""
-
-        prompt_parts = [f"System: {system_prompt}\n"]
+    def _build_messages(self, query: str, context: str, history: list = None) -> list:
+        """Build chat messages for Ollama chat API with optimized prompts."""
         
+        # Extract key info from context (first 600 chars max)
+        context_brief = ""
         if context:
-            prompt_parts.append(f"Context from knowledge base:\n{context}\n")
+            clean_context = context.replace("[Source:", "").replace("]", "")
+            context_brief = clean_context[:600].strip()
+        
+        # Ultra-concise system prompt
+        system_content = f"""You are Ahmed's portfolio assistant. Use this info:
+{context_brief}
+
+RULES: Answer in 1-2 SHORT sentences. Be direct. No lists."""
+        
+        messages = [{"role": "system", "content": system_content}]
         
         if history:
-            prompt_parts.append("Previous conversation:")
-            for msg in history[-6:]:  # Keep last 6 messages for context
-                role = "User" if msg.get("role") == "user" else "Assistant"
-                prompt_parts.append(f"{role}: {msg.get('content', '')}")
-            prompt_parts.append("")
+            for msg in history[-2:]:
+                messages.append({
+                    "role": msg.get("role", "user"),
+                    "content": msg.get("content", "")
+                })
         
-        prompt_parts.append(f"User: {query}")
-        prompt_parts.append("Assistant:")
+        messages.append({"role": "user", "content": query})
+        return messages
+    
+    def _build_prompt(self, query: str, context: str, history: list = None) -> str:
+        """Legacy prompt builder - kept for compatibility."""
+        system = "You are Ahmed's portfolio assistant. Answer in 1-2 sentences max. Be direct."
         
-        return "\n".join(prompt_parts)
+        prompt = f"{system}\n\n"
+        if context:
+            prompt += f"Info: {context[:1500]}\n\n"
+        prompt += f"Q: {query}\nA:"
+        
+        return prompt
     
     async def generate(
         self,
@@ -75,50 +88,40 @@ Keep responses concise but informative."""
         model: Optional[str] = None
     ) -> str:
         """
-        Generate a response (non-streaming).
-        
-        Args:
-            query: User's question
-            context: Retrieved context from RAG
-            history: Previous conversation history
-            model: Override default model
-            
-        Returns:
-            Generated response text
+        Generate a response using Ollama chat API (non-streaming).
         """
-        prompt = self._build_prompt(query, context, history)
+        messages = self._build_messages(query, context, history)
         
         payload = {
             "model": model or self.model,
-            "prompt": prompt,
+            "messages": messages,
             "stream": False,
             "options": {
-                "temperature": 0.7,
-                "top_p": 0.9,
-                "num_predict": 1024,
+                "temperature": 0.3,
+                "num_predict": 60,
+                "repeat_penalty": 1.2,
             }
         }
         
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
-                    f"{self.base_url}/api/generate",
+                    f"{self.base_url}/api/chat",
                     json=payload
                 )
                 
                 if response.status_code == 200:
                     data = response.json()
-                    return data.get("response", "")
+                    return data.get("message", {}).get("content", "")
                 else:
-                    logger.error(f"Ollama error: {response.status_code} - {response.text}")
-                    return "I'm sorry, I encountered an error generating a response."
+                    logger.error(f"Ollama error: {response.status_code}")
+                    return "Sorry, I encountered an error."
                     
         except httpx.TimeoutException:
-            logger.error("Ollama request timed out")
-            return "I'm sorry, the request timed out. Please try again."
+            return "Request timed out. Please try again."
         except Exception as e:
-            logger.error(f"Ollama generation error: {e}")
-            return "I'm sorry, I encountered an error. Please try again."
+            logger.error(f"Ollama error: {e}")
+            return "Sorry, something went wrong."
     
     async def generate_stream(
         self,
@@ -128,50 +131,37 @@ Keep responses concise but informative."""
         model: Optional[str] = None
     ) -> AsyncGenerator[str, None]:
         """
-        Generate a streaming response.
-        
-        Args:
-            query: User's question
-            context: Retrieved context from RAG
-            history: Previous conversation history
-            model: Override default model
-            
-        Yields:
-            Text chunks as they are generated
+        Generate a streaming response using Ollama chat API.
         """
-        prompt = self._build_prompt(query, context, history)
+        messages = self._build_messages(query, context, history)
         
         payload = {
             "model": model or self.model,
-            "prompt": prompt,
+            "messages": messages,
             "stream": True,
             "options": {
-                "temperature": 0.7,
-                "top_p": 0.9,
-                "num_predict": 1024,
+                "temperature": 0.3,
+                "num_predict": 60,  # ~40-50 words max
+                "repeat_penalty": 1.2,
             }
         }
         
         try:
-            logger.info(f"Calling Ollama with model: {model or self.model}")
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 async with client.stream(
                     "POST",
-                    f"{self.base_url}/api/generate",
+                    f"{self.base_url}/api/chat",
                     json=payload
                 ) as response:
                     if response.status_code != 200:
-                        logger.error(f"Ollama error: status {response.status_code}")
-                        yield "I'm sorry, I encountered an error generating a response."
+                        yield "Sorry, I encountered an error."
                         return
-                    
-                    logger.info("Ollama stream started successfully")
                     
                     async for line in response.aiter_lines():
                         if line:
                             try:
                                 data = json.loads(line)
-                                chunk = data.get("response", "")
+                                chunk = data.get("message", {}).get("content", "")
                                 if chunk:
                                     yield chunk
                                 if data.get("done", False):
@@ -180,13 +170,10 @@ Keep responses concise but informative."""
                                 continue
                                 
         except httpx.TimeoutException:
-            logger.error("Ollama streaming request timed out")
-            yield "I'm sorry, the request timed out."
+            yield "Request timed out."
         except Exception as e:
-            import traceback
-            logger.error(f"Ollama streaming error: {e}")
-            logger.error(f"Traceback: {traceback.format_exc()}")
-            yield "I'm sorry, I encountered an error."
+            logger.error(f"Ollama error: {e}")
+            yield "Sorry, something went wrong."
 
 
 # Singleton instance
