@@ -1,0 +1,83 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+backend/venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+backend/.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Next.js
+frontend/.next/
+frontend/out/
+frontend/.vercel
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+backend/logs/
+
+# Testing
+coverage/
+.nyc_output/
+.pytest_cache/
+
+# ChromaDB data
+backend/data/chroma/
+backend/data/chroma_db/
+chroma_data/
+*.sqlite3
+
+# Uploaded documents (keep structure, ignore content)
+backend/data/documents/*
+!backend/data/documents/.gitkeep
+
+# Build
+*.dll
+*.exe
+*.o
+*.obj
+
+# Misc
+*.bak
+*.tmp
+.cache/
+
