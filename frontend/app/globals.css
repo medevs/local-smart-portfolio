@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* Amber-based color palette */
+  --color-amber-50: #fffbeb;
+  --color-amber-100: #fef3c7;
+  --color-amber-200: #fde68a;
+  --color-amber-300: #fcd34d;
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #f59e0b;
+  --color-amber-600: #d97706;
+  --color-amber-700: #b45309;
+  --color-amber-800: #92400e;
+  --color-amber-900: #78350f;
+  --color-amber-950: #451a03;
+  
+  /* Stone colors for neutral tones */
+  --color-stone-800: #292524;
+  --color-stone-900: #1c1917;
+  
+  /* Theme variables */
+  --color-background: var(--color-amber-950);
+  --color-foreground: var(--color-amber-100);
+  
+  --color-card: rgba(69, 26, 3, 0.4);
+  --color-card-foreground: var(--color-amber-100);
+  
+  --color-popover: var(--color-amber-950);
+  --color-popover-foreground: var(--color-amber-100);
+  
+  --color-primary: var(--color-amber-700);
+  --color-primary-foreground: white;
+  
+  --color-secondary: rgba(120, 53, 15, 0.3);
+  --color-secondary-foreground: var(--color-amber-300);
+  
+  --color-muted: rgba(120, 53, 15, 0.2);
+  --color-muted-foreground: rgba(254, 243, 199, 0.6);
+  
+  --color-accent: rgba(120, 53, 15, 0.3);
+  --color-accent-foreground: var(--color-amber-200);
+  
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: white;
+  
+  --color-border: rgba(180, 83, 9, 0.3);
+  --color-input: rgba(180, 83, 9, 0.5);
+  --color-ring: var(--color-amber-600);
+  
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  
+  /* Font configuration */
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+body {
+  background: linear-gradient(135deg, var(--color-amber-950) 0%, rgb(120, 53, 15) 50%, var(--color-stone-900) 100%);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(69, 26, 3, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(180, 83, 9, 0.5);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(180, 83, 9, 0.7);
+}
+
+/* Animation delay utilities for staggered animations */
+.delay-100 {
+  animation-delay: 100ms;
+}
+
+.delay-200 {
+  animation-delay: 200ms;
+}
+
+/* Ensure proper text rendering */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Focus visible styles */
+:focus-visible {
+  outline: 2px solid var(--color-amber-600);
+  outline-offset: 2px;
+}
+
+/* Custom gradient background pattern */
+.pattern-grid {
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0icmdiYSgyNTEsMTkxLDM2LDAuMSkiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==");
+}
