@@ -93,15 +93,7 @@ export function useChat({
       const decoder = new TextDecoder();
       let buffer = "";
       let assistantContent = "";
-
-      // Create initial assistant message
-      const assistantMessage: ChatMessage = {
-        role: "assistant",
-        content: "",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
-      setIsTyping(false);
+      let messageAdded = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -121,16 +113,28 @@ export function useChat({
               const chunk = JSON.parse(data);
               if (chunk.chunk) {
                 assistantContent += chunk.chunk;
-                setMessages((prev) => {
-                  const newMessages = [...prev];
-                  if (newMessages.length > 0) {
-                    newMessages[newMessages.length - 1] = {
-                      ...newMessages[newMessages.length - 1],
-                      content: assistantContent,
-                    };
-                  }
-                  return newMessages;
-                });
+                
+                // Only add message bubble when first chunk arrives
+                if (!messageAdded) {
+                  setMessages((prev) => [...prev, {
+                    role: "assistant",
+                    content: assistantContent,
+                    timestamp: new Date(),
+                  }]);
+                  messageAdded = true;
+                  setIsTyping(false); // Stop showing "Thinking..." only when content starts
+                } else {
+                  setMessages((prev) => {
+                    const newMessages = [...prev];
+                    if (newMessages.length > 0) {
+                      newMessages[newMessages.length - 1] = {
+                        ...newMessages[newMessages.length - 1],
+                        content: assistantContent,
+                      };
+                    }
+                    return newMessages;
+                  });
+                }
               }
             } catch {
               // Skip invalid JSON
@@ -138,6 +142,7 @@ export function useChat({
           }
         }
       }
+      setIsTyping(false); // Ensure typing stops when stream ends
     } catch (error) {
       console.error("Chat error:", error);
       setIsTyping(false);

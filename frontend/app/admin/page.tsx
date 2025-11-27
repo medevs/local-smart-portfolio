@@ -12,6 +12,9 @@ import {
   XCircle,
   Loader2,
   Shield,
+  Lock,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +22,100 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { api, DocumentInfo, KBStats, HealthStatus } from "@/lib/api";
+
+// Admin password from environment variable
+const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "admin123";
+
+/**
+ * Password Gate Component
+ */
+function PasswordGate({ onSuccess }: { onSuccess: () => void }) {
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsChecking(true);
+    setError(false);
+    
+    // Small delay for UX
+    setTimeout(() => {
+      if (password === ADMIN_PASSWORD) {
+        sessionStorage.setItem("admin_authenticated", "true");
+        onSuccess();
+      } else {
+        setError(true);
+        setPassword("");
+      }
+      setIsChecking(false);
+    }, 500);
+  };
+
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="w-full max-w-md"
+      >
+        <Card className="bg-gradient-to-br from-amber-950/40 to-amber-900/20 border-amber-700/30">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-amber-900/50 flex items-center justify-center">
+              <Lock className="w-8 h-8 text-amber-500" />
+            </div>
+            <CardTitle className="text-amber-100 text-2xl">Admin Access</CardTitle>
+            <CardDescription className="text-amber-200/60">
+              Enter password to access the dashboard
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter admin password"
+                  className={`bg-amber-950/30 border-amber-700/50 text-amber-100 pr-10 ${
+                    error ? "border-red-500" : ""
+                  }`}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-400 hover:text-amber-300"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {error && (
+                <p className="text-red-400 text-sm flex items-center gap-2">
+                  <XCircle className="w-4 h-4" />
+                  Incorrect password. Try again.
+                </p>
+              )}
+              <Button
+                type="submit"
+                disabled={!password || isChecking}
+                className="w-full bg-amber-700 hover:bg-amber-600 text-white"
+              >
+                {isChecking ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Shield className="w-4 h-4 mr-2" />
+                )}
+                {isChecking ? "Verifying..." : "Access Dashboard"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </motion.div>
+    </div>
+  );
+}
 
 /**
  * Admin Dashboard Page
@@ -31,6 +128,17 @@ import { api, DocumentInfo, KBStats, HealthStatus } from "@/lib/api";
  * - View system health status
  */
 export default function AdminPage() {
+  // Auth state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // Check session on mount
+  useEffect(() => {
+    const auth = sessionStorage.getItem("admin_authenticated");
+    setIsAuthenticated(auth === "true");
+    setAuthChecked(true);
+  }, []);
+
   // State
   const [documents, setDocuments] = useState<DocumentInfo[]>([]);
   const [stats, setStats] = useState<KBStats | null>(null);
@@ -40,6 +148,20 @@ export default function AdminPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Show loading while checking auth
+  if (!authChecked) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+      </div>
+    );
+  }
+
+  // Show password gate if not authenticated
+  if (!isAuthenticated) {
+    return <PasswordGate onSuccess={() => setIsAuthenticated(true)} />;
+  }
 
   // Fetch all data
   const fetchData = useCallback(async () => {
@@ -147,7 +269,19 @@ export default function AdminPage() {
       className="space-y-8"
     >
       {/* Header */}
-      <div className="text-center mb-12">
+      <div className="text-center mb-12 relative">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            sessionStorage.removeItem("admin_authenticated");
+            setIsAuthenticated(false);
+          }}
+          className="absolute right-0 top-0 text-amber-400 hover:text-amber-300 hover:bg-amber-900/30"
+        >
+          <Lock className="w-4 h-4 mr-2" />
+          Logout
+        </Button>
         <h1 className="text-4xl font-bold text-amber-100 mb-4 flex items-center justify-center gap-3">
           <Shield className="w-10 h-10 text-amber-500" />
           Admin Dashboard
