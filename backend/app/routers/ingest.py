@@ -1,13 +1,15 @@
 """
 Document ingestion endpoint.
 Handles file upload and processing into the knowledge base.
+Protected by admin API key authentication.
 """
 
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from app.models.document import DocumentUploadResponse, DocumentMetadata
 from app.services.rag import get_rag_service
 from app.config import get_settings
 from app.utils.logger import logger
+from app.utils.auth import verify_admin_key
 from datetime import datetime
 
 router = APIRouter(prefix="/ingest", tags=["Ingestion"])
@@ -16,7 +18,8 @@ router = APIRouter(prefix="/ingest", tags=["Ingestion"])
 @router.post("", response_model=DocumentUploadResponse)
 @router.post("/", response_model=DocumentUploadResponse)
 async def ingest_document(
-    file: UploadFile = File(..., description="Document file to ingest")
+    file: UploadFile = File(..., description="Document file to ingest"),
+    _: bool = Depends(verify_admin_key)
 ) -> DocumentUploadResponse:
     """
     Upload and ingest a document into the knowledge base.
@@ -90,7 +93,8 @@ async def ingest_document(
 
 @router.post("/batch")
 async def ingest_batch(
-    files: list[UploadFile] = File(..., description="Multiple document files")
+    files: list[UploadFile] = File(..., description="Multiple document files"),
+    _: bool = Depends(verify_admin_key)
 ):
     """
     Upload and ingest multiple documents at once.

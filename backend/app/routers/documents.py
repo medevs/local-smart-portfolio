@@ -3,35 +3,17 @@ Unified document management endpoints.
 Combines upload, list, delete operations with admin key protection.
 """
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, Header, Depends
-from typing import Optional, List
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from typing import List
 from app.models.document import DocumentUploadResponse, DocumentMetadata, DocumentDeleteResponse
 from app.models.response import DatabaseStats
 from app.services.rag import get_rag_service
 from app.config import get_settings
 from app.utils.logger import logger
+from app.utils.auth import verify_admin_key
 from datetime import datetime
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
-
-
-async def verify_admin_key(x_admin_key: Optional[str] = Header(None)):
-    """Verify the admin API key."""
-    settings = get_settings()
-    
-    if not x_admin_key:
-        raise HTTPException(
-            status_code=401,
-            detail="Admin API key required"
-        )
-    
-    if x_admin_key != settings.admin_api_key:
-        raise HTTPException(
-            status_code=403,
-            detail="Invalid admin API key"
-        )
-    
-    return True
 
 
 @router.post("/upload", response_model=DocumentUploadResponse)

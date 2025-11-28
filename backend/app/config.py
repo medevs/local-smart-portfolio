@@ -46,8 +46,15 @@ class Settings(BaseSettings):
     # Embedding Model
     embedding_model: str = Field(default="all-MiniLM-L6-v2")
     
-    # Admin Settings
-    admin_api_key: str = Field(default="dev-admin-key-123")
+    # Admin Settings (REQUIRED - no default for security)
+    admin_api_key: str = Field(
+        default="",
+        description="Admin API key for protected endpoints. Set via ADMIN_API_KEY env var."
+    )
+    
+    def validate_admin_key(self) -> bool:
+        """Check if admin API key is properly configured."""
+        return bool(self.admin_api_key and len(self.admin_api_key) >= 16)
     
     @property
     def cors_origins_list(self) -> List[str]:

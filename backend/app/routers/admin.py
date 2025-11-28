@@ -3,36 +3,16 @@ Admin endpoints for document management and system operations.
 Protected by API key authentication.
 """
 
-from fastapi import APIRouter, HTTPException, Header, Depends
-from typing import Optional
+from fastapi import APIRouter, HTTPException, Depends
 from app.models.document import DocumentListResponse, DocumentMetadata, DocumentDeleteResponse
 from app.models.response import DatabaseStats, APIResponse
 from app.services.rag import get_rag_service
 from app.services.chroma_client import get_chroma_service
-from app.config import get_settings
 from app.utils.logger import logger
+from app.utils.auth import verify_admin_key
 from datetime import datetime
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
-
-
-async def verify_admin_key(x_admin_key: Optional[str] = Header(None)):
-    """Verify the admin API key."""
-    settings = get_settings()
-    
-    if not x_admin_key:
-        raise HTTPException(
-            status_code=401,
-            detail="Admin API key required"
-        )
-    
-    if x_admin_key != settings.admin_api_key:
-        raise HTTPException(
-            status_code=403,
-            detail="Invalid admin API key"
-        )
-    
-    return True
 
 
 @router.get("/documents", response_model=DocumentListResponse)
