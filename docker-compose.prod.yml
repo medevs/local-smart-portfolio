@@ -1,0 +1,71 @@
+# =============================================================================
+# Docker Compose - Production Override
+# =============================================================================
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+# =============================================================================
+
+version: '3.8'
+
+services:
+  backend:
+    # Production optimizations
+    environment:
+      - DEBUG=false
+    # Remove port mapping in production (use reverse proxy)
+    ports: []
+    # Add resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+
+  frontend:
+    # Production optimizations
+    environment:
+      - NODE_ENV=production
+    # Remove port mapping in production (use reverse proxy)
+    ports: []
+    # Add resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # ===========================================================================
+  # Nginx Reverse Proxy (Production)
+  # ===========================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: portfolio-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./infra/nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    networks:
+      - portfolio-network
+    depends_on:
+      - frontend
+      - backend
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  nginx_logs:
+    driver: local
+
