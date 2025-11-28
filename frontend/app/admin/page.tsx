@@ -15,6 +15,7 @@ import {
   Lock,
   Eye,
   EyeOff,
+  Key,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,36 +23,91 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { api, DocumentInfo, KBStats, HealthStatus } from "@/lib/api";
+import { api, DocumentInfo, KBStats, HealthStatus, isAdminKeyConfigured } from "@/lib/api";
 
-// Admin password from environment variable
-const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "admin123";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 /**
- * Password Gate Component
+ * Validates an API key by making a test request to the backend
  */
-function PasswordGate({ onSuccess }: { onSuccess: () => void }) {
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState(false);
+async function validateApiKey(apiKey: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/admin/stats`, {
+      headers: {
+        "X-Admin-Key": apiKey,
+      },
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * API Key Gate Component
+ * Validates the admin API key server-side before granting access
+ */
+function ApiKeyGate({ onSuccess }: { onSuccess: (apiKey: string) => void }) {
+  const [apiKey, setApiKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [isChecking, setIsChecking] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Check if key is pre-configured in environment
+  useEffect(() => {
+    let isMounted = true;
+
+    const autoValidateEnvKey = async () => {
+      if (!isAdminKeyConfigured()) {
+        return;
+      }
+
+      if (isMounted) {
+        setIsChecking(true);
+        setError(null);
+      }
+
+      const envKey = process.env.NEXT_PUBLIC_ADMIN_API_KEY || "";
+      const isValid = await validateApiKey(envKey);
+
+      if (!isMounted) {
+        return;
+      }
+
+      if (isValid) {
+        sessionStorage.setItem("admin_api_key", envKey);
+        onSuccess(envKey);
+      } else {
+        setError("Pre-configured API key is invalid. Please enter a valid key.");
+      }
+
+      setIsChecking(false);
+    };
+
+    void autoValidateEnvKey();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [onSuccess]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsChecking(true);
-    setError(false);
+    setError(null);
     
-    // Small delay for UX
-    setTimeout(() => {
-      if (password === ADMIN_PASSWORD) {
-        sessionStorage.setItem("admin_authenticated", "true");
-        onSuccess();
-      } else {
-        setError(true);
-        setPassword("");
-      }
-      setIsChecking(false);
-    }, 500);
+    // Validate key server-side
+    const isValid = await validateApiKey(apiKey);
+    
+    if (isValid) {
+      // Store the validated key in session storage
+      sessionStorage.setItem("admin_api_key", apiKey);
+      onSuccess(apiKey);
+    } else {
+      setError("Invalid API key. Please check and try again.");
+      setApiKey("");
+    }
+    setIsChecking(false);
   };
 
   return (
@@ -64,53 +120,63 @@ function PasswordGate({ onSuccess }: { onSuccess: () => void }) {
         <Card className="bg-gradient-to-br from-amber-950/40 to-amber-900/20 border-amber-700/30">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-amber-900/50 flex items-center justify-center">
-              <Lock className="w-8 h-8 text-amber-500" />
+              <Key className="w-8 h-8 text-amber-500" />
             </div>
             <CardTitle className="text-amber-100 text-2xl">Admin Access</CardTitle>
             <CardDescription className="text-amber-200/60">
-              Enter password to access the dashboard
+              Enter your Admin API Key to access the dashboard
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="relative">
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter admin password"
-                  className={`bg-amber-950/30 border-amber-700/50 text-amber-100 pr-10 ${
-                    error ? "border-red-500" : ""
-                  }`}
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-400 hover:text-amber-300"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+            {isChecking && !apiKey ? (
+              <div className="text-center py-4">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto text-amber-500" />
+                <p className="text-amber-200/60 mt-2">Validating credentials...</p>
               </div>
-              {error && (
-                <p className="text-red-400 text-sm flex items-center gap-2">
-                  <XCircle className="w-4 h-4" />
-                  Incorrect password. Try again.
-                </p>
-              )}
-              <Button
-                type="submit"
-                disabled={!password || isChecking}
-                className="w-full bg-amber-700 hover:bg-amber-600 text-white"
-              >
-                {isChecking ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                ) : (
-                  <Shield className="w-4 h-4 mr-2" />
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="relative">
+                  <Input
+                    type={showKey ? "text" : "password"}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="Enter Admin API Key"
+                    className={`bg-amber-950/30 border-amber-700/50 text-amber-100 pr-10 font-mono text-sm ${
+                      error ? "border-red-500" : ""
+                    }`}
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowKey(!showKey)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-400 hover:text-amber-300"
+                  >
+                    {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {error && (
+                  <p className="text-red-400 text-sm flex items-center gap-2">
+                    <XCircle className="w-4 h-4" />
+                    {error}
+                  </p>
                 )}
-                {isChecking ? "Verifying..." : "Access Dashboard"}
-              </Button>
-            </form>
+                <Button
+                  type="submit"
+                  disabled={!apiKey || apiKey.length < 16 || isChecking}
+                  className="w-full bg-amber-700 hover:bg-amber-600 text-white"
+                >
+                  {isChecking ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Shield className="w-4 h-4 mr-2" />
+                  )}
+                  {isChecking ? "Validating..." : "Access Dashboard"}
+                </Button>
+                <p className="text-xs text-amber-200/40 text-center">
+                  The API key is validated server-side for security
+                </p>
+              </form>
+            )}
           </CardContent>
         </Card>
       </motion.div>
@@ -127,11 +193,17 @@ function PasswordGate({ onSuccess }: { onSuccess: () => void }) {
  * - View uploaded documents
  * - Delete documents
  * - View system health status
+ * 
+ * Security:
+ * - Requires valid Admin API Key
+ * - API key is validated server-side
+ * - All operations require authentication
  */
 export default function AdminPage() {
   // Auth state - must be first
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
+  const [adminApiKey, setAdminApiKey] = useState<string>("");
 
   // Dashboard state - ALL hooks must be declared before any returns
   const [documents, setDocuments] = useState<DocumentInfo[]>([]);
@@ -141,16 +213,29 @@ export default function AdminPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  // Check session on mount
+  // Check session on mount for existing valid session
   useEffect(() => {
-    const auth = sessionStorage.getItem("admin_authenticated");
-    setIsAuthenticated(auth === "true");
-    setAuthChecked(true);
+    const storedKey = sessionStorage.getItem("admin_api_key");
+    if (storedKey && storedKey.length >= 16) {
+      // Validate the stored key
+      validateApiKey(storedKey).then((isValid) => {
+        if (isValid) {
+          setAdminApiKey(storedKey);
+          setIsAuthenticated(true);
+        } else {
+          // Clear invalid key
+          sessionStorage.removeItem("admin_api_key");
+        }
+        setAuthChecked(true);
+      });
+    } else {
+      setAuthChecked(true);
+    }
   }, []);
 
   // Fetch all data - must be declared before conditional returns
   const fetchData = useCallback(async () => {
-    if (!isAuthenticated) return; // Guard inside callback
+    if (!isAuthenticated || !adminApiKey) return; // Guard inside callback
 
     setIsLoading(true);
 
@@ -170,14 +255,20 @@ export default function AdminPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, adminApiKey]);
 
   // Fetch data when authenticated
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && adminApiKey) {
       fetchData();
     }
-  }, [isAuthenticated, fetchData]);
+  }, [isAuthenticated, adminApiKey, fetchData]);
+
+  // Handle successful authentication
+  const handleAuthSuccess = useCallback((apiKey: string) => {
+    setAdminApiKey(apiKey);
+    setIsAuthenticated(true);
+  }, []);
 
   // Show loading while checking auth
   if (!authChecked) {
@@ -188,9 +279,9 @@ export default function AdminPage() {
     );
   }
 
-  // Show password gate if not authenticated
+  // Show API key gate if not authenticated
   if (!isAuthenticated) {
-    return <PasswordGate onSuccess={() => setIsAuthenticated(true)} />;
+    return <ApiKeyGate onSuccess={handleAuthSuccess} />;
   }
 
   // Handle file upload
@@ -273,7 +364,8 @@ export default function AdminPage() {
           variant="ghost"
           size="sm"
           onClick={() => {
-            sessionStorage.removeItem("admin_authenticated");
+            sessionStorage.removeItem("admin_api_key");
+            setAdminApiKey("");
             setIsAuthenticated(false);
           }}
           className="absolute right-0 top-0 text-amber-400 hover:text-amber-300 hover:bg-amber-900/30"

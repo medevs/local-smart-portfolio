@@ -1,11 +1,23 @@
 /**
  * API client for backend communication.
+ * 
+ * Security Note:
+ * - API keys are loaded from environment variables
+ * - Never hardcode API keys in source code
+ * - Set NEXT_PUBLIC_ADMIN_API_KEY in .env.local
  */
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-// Admin API key (in production, this should be handled more securely)
-const ADMIN_API_KEY = process.env.NEXT_PUBLIC_ADMIN_API_KEY || "dev-admin-key-123";
+// Admin API key from environment (required for admin operations)
+const ADMIN_API_KEY = process.env.NEXT_PUBLIC_ADMIN_API_KEY || "";
+
+/**
+ * Check if admin API key is configured
+ */
+export function isAdminKeyConfigured(): boolean {
+  return Boolean(ADMIN_API_KEY && ADMIN_API_KEY.length >= 16);
+}
 
 /**
  * Document metadata from the API
@@ -59,15 +71,33 @@ export interface HealthStatus {
 }
 
 /**
+ * Get the current admin API key from session storage or environment
+ */
+function getAdminKey(): string {
+  // First check session storage (set during login)
+  if (typeof window !== "undefined") {
+    const sessionKey = sessionStorage.getItem("admin_api_key");
+    if (sessionKey) return sessionKey;
+  }
+  // Fall back to environment variable
+  return ADMIN_API_KEY;
+}
+
+/**
  * API client class
  */
 class ApiClient {
   private baseUrl: string;
-  private adminKey: string;
 
   constructor() {
     this.baseUrl = API_BASE_URL;
-    this.adminKey = ADMIN_API_KEY;
+  }
+
+  /**
+   * Get the current admin API key
+   */
+  private get adminKey(): string {
+    return getAdminKey();
   }
 
   /**
