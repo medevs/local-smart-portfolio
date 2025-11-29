@@ -9,20 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-const infrastructure = [
-  "Docker containerization for all services",
-  "Traefik reverse proxy with SSL",
-  "Prometheus + Grafana monitoring",
-  "Ollama for LLM serving",
-];
-
-const security = [
-  "UFW firewall configuration",
-  "SSH hardening with key-based auth",
-  "Fail2ban for intrusion prevention",
-  "Regular security audits",
-];
+import { caseStudyData } from "@/data/caseStudy";
 
 export function CaseStudy() {
   return (
@@ -35,10 +22,10 @@ export function CaseStudy() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-amber-100 text-2xl">
             <Shield className="w-6 h-6 text-amber-500" />
-            Case Study: Local AI Deployment
+            {caseStudyData.title}
           </CardTitle>
           <CardDescription className="text-amber-200/60">
-            Building a production-grade homelab for LLM inference
+            {caseStudyData.description}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -48,7 +35,7 @@ export function CaseStudy() {
                 Infrastructure
               </h3>
               <ul className="space-y-2 text-amber-200/80">
-                {infrastructure.map((item) => (
+                {caseStudyData.infrastructure.map((item) => (
                   <li key={item} className="flex items-start gap-2">
                     <ChevronRight className="w-4 h-4 mt-1 text-amber-500" />
                     <span>{item}</span>
@@ -59,7 +46,7 @@ export function CaseStudy() {
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-amber-100">Security</h3>
               <ul className="space-y-2 text-amber-200/80">
-                {security.map((item) => (
+                {caseStudyData.security.map((item) => (
                   <li key={item} className="flex items-start gap-2">
                     <ChevronRight className="w-4 h-4 mt-1 text-amber-500" />
                     <span>{item}</span>

@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { personalInfo } from "@/data/personal";
 
 export function ContactForm() {
   return (
@@ -97,9 +98,10 @@ export function ContactForm() {
             <Button
               variant="outline"
               className="w-full justify-start border-amber-700/50 text-amber-200 hover:bg-amber-900/30"
+              onClick={() => window.location.href = `mailto:${personalInfo.email}`}
             >
               <Mail className="w-5 h-5 mr-3" />
-              Email
+              {personalInfo.email}
             </Button>
             <Button
               variant="outline"
@@ -122,8 +124,9 @@ export function ContactForm() {
               <span className="w-2 h-2 rounded-full bg-green-500" />
               Available for opportunities
             </p>
-            <p>Open to remote work worldwide</p>
-            <p>Timezone: UTC+0</p>
+            <p>{personalInfo.location}</p>
+            <p>Phone: {personalInfo.phone}</p>
+            <p>Email: {personalInfo.email}</p>
           </CardContent>
         </Card>
       </motion.div>

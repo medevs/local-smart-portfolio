@@ -27,9 +27,9 @@ export function Timeline() {
                 transition={{ delay: 0.1 * index }}
                 className="flex gap-6"
               >
-                <div className="flex flex-col items-center">
-                  <div className="w-12 h-12 rounded-full bg-amber-700/30 border-2 border-amber-600 flex items-center justify-center text-amber-100 font-bold">
-                    {item.year.slice(2)}
+                <div className="flex flex-col items-center min-w-[60px]">
+                  <div className="w-auto min-w-[50px] px-3 py-2 rounded-full bg-amber-700/30 border-2 border-amber-600 flex items-center justify-center text-amber-100 font-bold text-sm whitespace-nowrap">
+                    {item.year}
                   </div>
                   {index < timeline.length - 1 && (
                     <div className="w-0.5 h-full bg-amber-700/30 mt-2" />

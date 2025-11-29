@@ -3,19 +3,32 @@
 import { motion } from "framer-motion";
 import { Layers } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { skillCategories } from "@/data/personal";
 
 const stacks = [
   {
-    title: "Frontend",
-    items: ["Next.js 15 (App Router)", "React 19", "TypeScript", "Tailwind CSS", "Framer Motion"],
+    title: skillCategories[0].category,
+    items: skillCategories[0].skills,
   },
   {
-    title: "Backend",
-    items: ["FastAPI", "Python 3.11+", "LangChain", "ChromaDB", "Ollama"],
+    title: skillCategories[1].category,
+    items: skillCategories[1].skills,
   },
   {
-    title: "Infrastructure",
-    items: ["Docker", "Traefik", "Prometheus", "Grafana", "Ubuntu Server"],
+    title: skillCategories[2].category,
+    items: skillCategories[2].skills,
+  },
+  {
+    title: skillCategories[3].category,
+    items: skillCategories[3].skills,
+  },
+  {
+    title: skillCategories[4].category,
+    items: skillCategories[4].skills,
+  },
+  {
+    title: skillCategories[5].category,
+    items: skillCategories[5].skills,
   },
 ];
 
@@ -34,7 +47,7 @@ export function TechStack() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {stacks.map((stack) => (
               <div
                 key={stack.title}
