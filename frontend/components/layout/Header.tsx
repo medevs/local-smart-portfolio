@@ -14,6 +14,7 @@ const navItems = [
   { href: "/", label: "Home" },
   { href: "/projects", label: "Projects" },
   { href: "/about", label: "About" },
+  { href: "/homelab", label: "Homelab" },
   { href: "/contact", label: "Contact" },
   { href: "/admin", label: "Admin" },
 ];
@@ -32,9 +33,13 @@ export function Header({ onChatOpen }: HeaderProps) {
             className="flex items-center gap-2"
           >
             <Link href="/" className="flex items-center gap-2">
-              <Coffee className="w-8 h-8 text-amber-500" />
+              <img 
+                src="/logo.svg" 
+                alt="Local AI/LLM Specialist Logo" 
+                className="w-10 h-10"
+              />
               <span className="text-xl font-bold text-amber-100">
-                AI Portfolio
+                Ahmed Oublihi
               </span>
             </Link>
           </motion.div>
