@@ -1,36 +1,133 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Portfolio Frontend
 
-## Getting Started
+Modern Next.js 15 portfolio website with TypeScript, TailwindCSS, and shadcn/ui.
 
-First, run the development server:
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- pnpm (recommended) or npm
+
+### Installation
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+# Install dependencies
+pnpm install
+
+# Run development server
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the portfolio.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📁 Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+frontend/
+├── app/                  # Next.js app router pages
+│   ├── page.tsx         # Home page
+│   ├── about/           # About page
+│   ├── projects/        # Projects page
+│   ├── contact/         # Contact page
+│   ├── homelab/         # Homelab journey page
+│   └── admin/           # Admin dashboard
+│
+├── components/          # React components
+│   ├── ui/              # shadcn/ui components
+│   ├── sections/        # Page sections
+│   ├── layout/          # Layout components
+│   └── chat/            # Chat components
+│
+├── data/                # Static data files
+│   ├── personal.ts      # Personal information
+│   ├── projects.ts      # Projects data
+│   ├── timeline.ts      # Timeline data
+│   └── ...
+│
+└── lib/                 # Utilities
+    ├── api.ts           # API client
+    └── utils.ts         # Helper functions
+```
 
-## Learn More
+## 🎨 Customization
 
-To learn more about Next.js, take a look at the following resources:
+### Update Your Data
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+All personal data is centralized in `data/` directory:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Personal Info**: Edit `data/personal.ts`
+- **Projects**: Edit `data/projects.ts`
+- **Timeline**: Edit `data/timeline.ts`
+- **Skills**: Edit `data/skills.tsx`
+- **Page Content**: Edit `data/pageContent.ts`
 
-## Deploy on Vercel
+### Styling
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The portfolio uses TailwindCSS with a custom amber/gold theme. Customize colors in:
+- `app/globals.css` - Global styles and CSS variables
+- Component files - Tailwind utility classes
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🛠️ Available Scripts
+
+```bash
+# Development
+pnpm dev              # Start dev server
+
+# Production
+pnpm build            # Build for production
+pnpm start            # Start production server
+
+# Code Quality
+pnpm lint             # Run ESLint
+pnpm type-check       # TypeScript type checking
+```
+
+## 📦 Dependencies
+
+### Core
+- **Next.js 15.5.5** - React framework
+- **TypeScript** - Type safety
+- **TailwindCSS 4.0** - Styling
+- **Framer Motion** - Animations
+
+### UI Components
+- **shadcn/ui** - Component library
+- **Radix UI** - Accessible primitives
+- **Lucide React** - Icons
+- **React Icons** - Additional icons
+
+### State & Data
+- **Zustand** - State management
+- **Axios** - HTTP client
+
+## 🔗 Environment Variables
+
+Create `.env.local`:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+## 📱 Pages
+
+- `/` - Home page with hero, skills, and featured projects
+- `/about` - About page with timeline and tech stack
+- `/projects` - All projects showcase
+- `/contact` - Contact form
+- `/homelab` - Homelab journey and infrastructure
+- `/admin` - Admin dashboard (requires API key)
+
+## 🎯 Features
+
+- ✅ Responsive design (mobile-first)
+- ✅ Dark theme with amber accents
+- ✅ Smooth animations with Framer Motion
+- ✅ Real-time system metrics display
+- ✅ LLM performance benchmarks
+- ✅ Chat interface integration
+- ✅ SEO optimized
+
+## 📄 License
+
+MIT License
