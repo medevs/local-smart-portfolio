@@ -15,10 +15,17 @@ This directory contains optional deployment configurations for specific use case
 
 **Usage**:
 ```bash
+# Recommended: Use the version in deployment/ folder
 docker compose -f docker-compose.yml -f deployment/docker-compose.homelab.yml up -d
+
+# Legacy: Root version (kept for backward compatibility)
+docker compose -f docker-compose.yml -f docker-compose.homelab.yml up -d
 ```
 
-**Note**: Update the image names (`ghcr.io/medevs/portfolio-*`) to match your own registry if using this template.
+**Note**: 
+- Both `docker-compose.homelab.yml` (root) and `deployment/docker-compose.homelab.yml` are identical
+- The root version is kept for backward compatibility with existing deployments
+- Update the image names (`ghcr.io/medevs/portfolio-*`) to match your own registry if using this template
 
 ---
 

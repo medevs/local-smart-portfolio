@@ -61,15 +61,20 @@ coverage/
 .nyc_output/
 .pytest_cache/
 
-# ChromaDB data
+# ChromaDB data (keep structure with .gitkeep)
+backend/data/chroma_db/*
+!backend/data/chroma_db/.gitkeep
 backend/data/chroma/
-backend/data/chroma_db/
 chroma_data/
 *.sqlite3
 
 # Uploaded documents (keep structure, ignore content)
 backend/data/documents/*
 !backend/data/documents/.gitkeep
+
+# Logs (keep structure with .gitkeep)
+backend/logs/*
+!backend/logs/.gitkeep
 
 # Build
 *.dll
@@ -81,4 +86,50 @@ backend/data/documents/*
 *.bak
 *.tmp
 .cache/
+
+# Virtual environments (all locations)
+venv/
+venv*/
+env/
+env*/
+ENV/
+ENV*/
+.venv/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Python
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# IDE - Additional
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+
+# OS - Additional
+.DS_Store?
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*~
 
