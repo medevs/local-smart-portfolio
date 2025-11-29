@@ -243,6 +243,15 @@ Edit `frontend/data/personal.ts` with your information:
 - **Page Content**: `frontend/data/pageContent.ts`
 - **About Section**: `frontend/data/about.tsx`
 
+### Frontend Styling Customization
+
+The portfolio uses TailwindCSS with a custom amber/gold theme. To customize:
+
+1. **Global Styles**: Edit `frontend/app/globals.css`
+2. **Color Variables**: Update CSS custom properties
+3. **Components**: Modify Tailwind classes in component files
+4. **Theme**: Adjust colors in `frontend/components/layout/ClientLayout.tsx`
+
 ### Customize Styling
 
 The portfolio uses an amber/gold color scheme. To customize:
@@ -296,6 +305,8 @@ docker compose exec frontend sh
 
 ## 🚀 Production Deployment
 
+### Using Production Override
+
 For production, use the production override:
 
 ```bash
@@ -316,6 +327,116 @@ Recommended reverse proxies:
 - **Caddy**
 
 Example Nginx configuration is available in `infra/nginx/`.
+
+### Homelab CI/CD Deployment (Optional)
+
+If you have CI/CD set up with GitHub Actions that builds and pushes images to GHCR:
+
+```bash
+# Using the root file (for backward compatibility)
+docker compose -f docker-compose.yml -f docker-compose.homelab.yml up -d
+
+# OR using the organized deployment/ folder
+docker compose -f docker-compose.yml -f deployment/docker-compose.homelab.yml up -d
+```
+
+**Note**: Both files are identical. The root version is kept for backward compatibility with existing deployments.
+
+**What it does**:
+- Uses pre-built images from GHCR instead of building locally
+- Configures homelab-specific ports and environment variables
+- Sets `pull_policy: always` to automatically get latest images
+
+**Update image names**: Edit the `image:` fields to match your own GHCR registry if using this template.
+
+---
+
+## 💻 Frontend Development
+
+### Local Development Setup
+
+```bash
+cd frontend
+
+# Install dependencies
+pnpm install  # or npm install
+
+# Run development server
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) to view the portfolio.
+
+### Frontend Project Structure
+
+```
+frontend/
+├── app/                  # Next.js app router pages
+│   ├── page.tsx         # Home page
+│   ├── about/           # About page
+│   ├── projects/        # Projects page
+│   ├── contact/         # Contact page
+│   ├── homelab/         # Homelab journey page (optional)
+│   └── admin/           # Admin dashboard
+│
+├── components/          # React components
+│   ├── ui/              # shadcn/ui components
+│   ├── sections/        # Page sections
+│   ├── layout/          # Layout components
+│   └── chat/            # Chat components
+│
+├── data/                # Static data files (customize these!)
+│   ├── personal.ts      # Personal information
+│   ├── projects.ts      # Projects data
+│   ├── timeline.ts      # Timeline data
+│   └── ...
+│
+└── lib/                 # Utilities
+    ├── api.ts           # API client
+    └── utils.ts         # Helper functions
+```
+
+### Frontend Environment Variables
+
+Create `frontend/.env.local`:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_ADMIN_API_KEY=your-admin-api-key  # Optional, for admin panel
+```
+
+### Frontend Available Scripts
+
+```bash
+# Development
+pnpm dev              # Start dev server
+
+# Production
+pnpm build            # Build for production
+pnpm start            # Start production server
+
+# Code Quality
+pnpm lint             # Run ESLint
+pnpm type-check       # TypeScript type checking
+```
+
+### Frontend Dependencies
+
+**Core**:
+- Next.js 15.5.5 - React framework
+- TypeScript - Type safety
+- TailwindCSS 4.0 - Styling
+- Framer Motion - Animations
+
+**UI Components**:
+- shadcn/ui - Component library
+- Radix UI - Accessible primitives
+- Lucide React - Icons
+- React Icons - Additional icons
+
+**State & Data**:
+- Zustand - State management
+- Axios - HTTP client
 
 ---
 

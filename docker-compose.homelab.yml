@@ -4,7 +4,7 @@
 # This file is for homelab/CI-CD deployments using GHCR images
 # Regular users should use docker-compose.yml directly
 # =============================================================================
-# Use with: docker-compose -f docker-compose.yml -f deployment/docker-compose.homelab.yml up
+# Use with: docker compose -f docker-compose.yml -f docker-compose.homelab.yml up -d
 # =============================================================================
 
 version: '3.8'
