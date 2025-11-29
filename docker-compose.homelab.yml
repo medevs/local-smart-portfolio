@@ -1,0 +1,34 @@
+# =============================================================================
+# Docker Compose - Homelab Override
+# =============================================================================
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.homelab.yml up
+# This override configures the services to use GHCR images instead of building locally
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # ===========================================================================
+  # Backend Service - Use GHCR Image
+  # ===========================================================================
+  backend:
+    # Remove build section and use GHCR image instead
+    image: ghcr.io/medevs/portfolio-backend:latest
+    # Keep all other settings from base compose
+    pull_policy: always  # Always pull latest image
+
+  # ===========================================================================
+  # Frontend Service - Use GHCR Image
+  # ===========================================================================
+  frontend:
+    # Remove build section and use GHCR image instead
+    image: ghcr.io/medevs/portfolio-frontend:latest
+    # Override ports for homelab (as mentioned in Day 10)
+    ports:
+      - "3100:3000"
+    # Override environment variables for homelab
+    environment:
+      - NEXT_PUBLIC_API_URL=http://portfolio-api.medevs.local
+      - NEXT_PUBLIC_ADMIN_API_KEY=${ADMIN_API_KEY}
+    pull_policy: always  # Always pull latest image
+
