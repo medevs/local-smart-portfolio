@@ -1,0 +1,21 @@
+# Git Commit Message Rules
+
+## Rule: Maximum 10 Words
+All commit messages must be **10 words or less**.
+
+### Examples:
+✅ Good:
+- "Add user authentication"
+- "Fix login bug"
+- "Update dependencies"
+- "Cleanup: enhance .gitignore and add .gitkeep files"
+
+❌ Bad:
+- "Add user authentication with JWT tokens and refresh token support" (13 words)
+- "Fix the login bug that was causing users to be unable to log in" (12 words)
+
+### Format:
+- Use imperative mood (Add, Fix, Update, Remove)
+- Be concise and descriptive
+- Use prefixes when helpful: "Fix:", "Add:", "Update:", "Remove:", "Cleanup:"
+
