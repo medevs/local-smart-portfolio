@@ -6,6 +6,8 @@
 
 All commit messages must be **10 words or less**.
 
+**Note**: `.gitmessage` is a local file (in .gitignore). Each developer should create their own copy if they want to use git commit templates.
+
 **Examples:**
 - ✅ "Add user authentication"
 - ✅ "Fix login bug"  
