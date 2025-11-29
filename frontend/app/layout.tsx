@@ -16,8 +16,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ahmed | AI Portfolio",
-  description: "AI-Powered Portfolio Website & Personal Homelab Assistant",
+  title: "Ahmed Oublihi | Local AI/LLM Specialist",
+  description: "Software Engineer specializing in Local AI/LLM systems, self-hosted infrastructure, and production-ready AI solutions",
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

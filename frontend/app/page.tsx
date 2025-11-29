@@ -12,6 +12,7 @@ import {
 } from "@/components/sections";
 import { ProjectCardSkeleton } from "@/components/ui/skeleton";
 import { projects } from "@/data/projects";
+import { homePageContent } from "@/data/pageContent";
 
 /**
  * Home Page - Main landing page of the portfolio
@@ -38,7 +39,7 @@ export default function HomePage() {
       <section>
         <h2 className="text-3xl font-bold text-amber-100 mb-6 flex items-center gap-2">
           <Code2 className="w-8 h-8 text-amber-500" />
-          Featured Projects
+          {homePageContent.title}
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Suspense fallback={<ProjectCardSkeleton />}>

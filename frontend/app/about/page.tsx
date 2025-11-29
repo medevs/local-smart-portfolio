@@ -3,6 +3,8 @@
 import { motion } from "framer-motion";
 import { User } from "lucide-react";
 import { AboutCard, Timeline, TechStack } from "@/components/sections";
+import { personalInfo } from "@/data/personal";
+import { aboutPageContent } from "@/data/pageContent";
 
 /**
  * About Page - Personal information and experience
@@ -19,12 +21,18 @@ export default function AboutPage() {
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold text-amber-100 mb-4 flex items-center justify-center gap-3">
           <User className="w-10 h-10 text-amber-500" />
-          About Me
+          {aboutPageContent.title}
         </h1>
-        <p className="text-lg text-amber-200/70 max-w-2xl mx-auto">
-          Software engineer passionate about local AI, LLMs, and building
-          production-grade systems
-        </p>
+        {aboutPageContent.description && (
+          <p className="text-lg text-amber-200/70 max-w-2xl mx-auto">
+            {aboutPageContent.description}
+          </p>
+        )}
+        {!aboutPageContent.description && (
+          <p className="text-lg text-amber-200/70 max-w-2xl mx-auto">
+            {personalInfo.bio}
+          </p>
+        )}
       </div>
 
       <AboutCard />

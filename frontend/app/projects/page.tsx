@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Code2 } from "lucide-react";
 import { ProjectCard, CaseStudy, BenchmarksCard } from "@/components/sections";
 import { projects } from "@/data/projects";
+import { projectsPageContent } from "@/data/pageContent";
 
 // Note: metadata must be in a separate file or use generateMetadata for client components
 // For now, metadata is set in layout or can use generateMetadata
@@ -23,11 +24,10 @@ export default function ProjectsPage() {
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold text-amber-100 mb-4 flex items-center justify-center gap-3">
           <Code2 className="w-10 h-10 text-amber-500" />
-          Projects Portfolio
+          {projectsPageContent.title}
         </h1>
         <p className="text-lg text-amber-200/70 max-w-2xl mx-auto">
-          A collection of AI and full-stack projects showcasing local LLM
-          deployment, RAG systems, and modern web development
+          {projectsPageContent.description}
         </p>
       </div>
 
