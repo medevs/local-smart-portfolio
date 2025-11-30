@@ -1,7 +1,7 @@
 """Generic response models."""
 
 from pydantic import BaseModel, Field
-from typing import Any, Optional
+from typing import Any, Optional, List
 from datetime import datetime
 
 
@@ -70,3 +70,36 @@ class DatabaseStats(BaseModel):
     collection_name: str = Field(...)
     embedding_model: str = Field(...)
 
+
+class SystemMetricsResponse(BaseModel):
+    """System metrics response."""
+    cpu_usage: float = Field(..., description="CPU usage percentage")
+    ram_usage_gb: float = Field(..., description="RAM usage in GB")
+    ram_usage_percent: float = Field(..., description="RAM usage percentage")
+    ram_total_gb: float = Field(..., description="Total RAM in GB")
+    uptime_days: int = Field(..., description="System uptime in days")
+    uptime_hours: int = Field(..., description="System uptime in hours")
+    uptime_percent: float = Field(..., description="Uptime percentage")
+    disk_usage_percent: float = Field(..., description="Disk usage percentage")
+    disk_free_gb: float = Field(..., description="Free disk space in GB")
+    model_latency_ms: float = Field(..., description="Ollama model latency in milliseconds")
+    timestamp: str = Field(..., description="Timestamp of metrics collection")
+    error: Optional[str] = Field(default=None, description="Error message if any")
+
+
+class BenchmarkResult(BaseModel):
+    """Single benchmark result for a model."""
+    model: str = Field(..., description="Model name")
+    speed_tokens_per_sec: float = Field(..., description="Tokens per second")
+    speed_display: str = Field(..., description="Formatted speed string")
+    memory_gb: float = Field(..., description="Memory usage in GB")
+    memory_display: str = Field(..., description="Formatted memory string")
+    latency_ms: float = Field(..., description="Latency in milliseconds")
+    quality_score: int = Field(..., description="Quality score (0-100)")
+    last_benchmarked: str = Field(..., description="Last benchmark timestamp")
+
+
+class BenchmarksResponse(BaseModel):
+    """Benchmarks response."""
+    benchmarks: List[BenchmarkResult] = Field(..., description="List of benchmark results")
+    timestamp: str = Field(..., description="Timestamp of benchmarks collection")
