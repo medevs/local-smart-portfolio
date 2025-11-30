@@ -11,7 +11,7 @@ import time
 
 from app.config import get_settings, ensure_directories
 from app.utils.logger import setup_logging, logger
-from app.routers import health_router, chat_router, ingest_router, admin_router, documents_router
+from app.routers import health_router, chat_router, ingest_router, admin_router, documents_router, metrics_router
 
 
 @asynccontextmanager
@@ -87,6 +87,7 @@ def create_app() -> FastAPI:
     app.include_router(ingest_router)
     app.include_router(admin_router)
     app.include_router(documents_router)
+    app.include_router(metrics_router)
     
     # Root endpoint
     @app.get("/")

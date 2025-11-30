@@ -5,6 +5,7 @@ from .chat import router as chat_router
 from .ingest import router as ingest_router
 from .admin import router as admin_router
 from .documents import router as documents_router
+from .metrics import router as metrics_router
 
 __all__ = [
     "health_router",
@@ -12,5 +13,6 @@ __all__ = [
     "ingest_router",
     "admin_router",
     "documents_router",
+    "metrics_router",
 ]
 
