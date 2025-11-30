@@ -43,22 +43,19 @@ jobs:
         run: |
           docker push ghcr.io/${{ github.repository_owner }}/portfolio-backend:latest
 
-      - name: Deploy to homelab server
-        if: github.ref == 'refs/heads/main'
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.HOMELAB_HOST }}
-          username: ${{ secrets.HOMELAB_USER }}
-          key: ${{ secrets.HOMELAB_SSH_KEY }}
-          port: ${{ secrets.HOMELAB_SSH_PORT }}
-          script_stop: true
-          script: |
-            set -e
-            cd ~/projects/local-smart-portfolio
-            echo "📥 Pulling latest images..."
-            docker compose pull
-            echo "🔄 Recreating containers..."
-            docker compose up -d --force-recreate
-            echo "🧹 Cleaning up old images..."
-            docker image prune -f
-            echo "✅ Deployment complete!"
+  deploy:
+    runs-on: self-hosted
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Deploy to homelab
+        run: |
+          set -e
+          cd ~/projects/local-smart-portfolio
+          echo "📥 Pulling latest images..."
+          docker compose pull
+          echo "🔄 Recreating containers..."
+          docker compose up -d --force-recreate
+          echo "🧹 Cleaning up old images..."
+          docker image prune -f
+          echo "✅ Deployment complete!"
