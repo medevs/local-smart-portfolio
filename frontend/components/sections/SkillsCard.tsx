@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { skills } from "@/data/skills";
+import { Skill } from "@/types";
 
 export function SkillsCard() {
   return (
@@ -31,7 +32,7 @@ export function SkillsCard() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {skills.map((skill, index) => (
+          {skills.map((skill: Skill, index: number) => (
             <motion.div
               key={skill.name}
               initial={{ opacity: 0, x: -20 }}
