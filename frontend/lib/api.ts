@@ -7,7 +7,7 @@
  * - Set NEXT_PUBLIC_ADMIN_API_KEY in .env.local
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL as string;
 
 // Admin API key from environment (required for admin operations)
 const ADMIN_API_KEY = process.env.NEXT_PUBLIC_ADMIN_API_KEY || "";
