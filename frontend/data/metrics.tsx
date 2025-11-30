@@ -1,5 +1,7 @@
 /**
  * System metrics and benchmarks data.
+ * This file maintains backward compatibility.
+ * New code should use metrics/static.tsx
  */
 
 import { Zap, Cpu, Activity, Clock } from "lucide-react";
@@ -37,4 +39,3 @@ export const benchmarks: Benchmark[] = [
   { model: "Mistral 7B", speed: "58 tok/s", quality: 88, memory: "7.2GB" },
   { model: "Phi-3.5", speed: "75 tok/s", quality: 85, memory: "4.8GB" },
 ];
-

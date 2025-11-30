@@ -1,35 +1,25 @@
 /**
- * Data exports.
+ * Main data exports
+ * Central export file for all portfolio data
  */
 
-export { skills } from "./skills";
-export { projects } from "./projects";
-export { systemMetrics, benchmarks } from "./metrics";
-export { timeline } from "./timeline";
-export {
-  personalInfo,
-  experiences,
-  education,
-  personalProjects,
-  certifications,
-  languages,
-  skillCategories,
-  interests,
-} from "./personal";
-export {
-  homelabOverview,
-  journeyMilestones,
-  homelabServices,
-  securityFeatures,
-  homelabPageContent,
-} from "./homelab";
-export { caseStudyData } from "./caseStudy";
-export { quickFacts, journeyText } from "./about";
-export {
-  homePageContent,
-  projectsPageContent,
-  aboutPageContent,
-  contactPageContent,
-  heroContent,
-} from "./pageContent";
+// Personal data
+export * from "./personal";
 
+// Projects
+export * from "./projects";
+
+// Skills
+export * from "./skills/index";
+
+// Timeline
+export * from "./timeline/career";
+
+// Content
+export * from "./content";
+
+// Homelab
+export * from "./homelab";
+
+// Metrics (static fallback)
+export * from "./metrics/static";
