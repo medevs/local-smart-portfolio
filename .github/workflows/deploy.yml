@@ -22,7 +22,14 @@ jobs:
 
       - name: Build frontend image
         run: |
-          docker build -t ghcr.io/${{ github.repository_owner }}/portfolio-frontend:latest ./frontend
+          API_URL="${{ secrets.NEXT_PUBLIC_API_URL }}"
+          if [ -z "$API_URL" ]; then
+            API_URL="https://portfolio-api.medevs.local"
+          fi
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL=${API_URL} \
+            -t ghcr.io/${{ github.repository_owner }}/portfolio-frontend:latest \
+            ./frontend
 
       - name: Build backend image
         run: |

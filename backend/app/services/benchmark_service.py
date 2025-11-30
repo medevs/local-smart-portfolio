@@ -65,18 +65,21 @@ async def measure_model_latency(model_name: str, ollama_base_url: str) -> float:
 async def measure_model_speed(model_name: str, ollama_base_url: str) -> float:
     """
     Measure tokens per second for a model.
+    Uses actual token count from Ollama response for accuracy.
     
     Args:
         model_name: Name of the model to benchmark
         ollama_base_url: Base URL of Ollama service
         
     Returns:
-        Tokens per second
+        Tokens per second, or 0.0 if failed/timeout
     """
     try:
-        timeout = httpx.Timeout(60.0, connect=10.0)
+        # Longer timeout for larger models
+        timeout = httpx.Timeout(120.0, connect=10.0)
         start_time = time.time()
         tokens_generated = 0
+        actual_tokens = 0
         
         async with httpx.AsyncClient(timeout=timeout) as client:
             async with client.stream(
@@ -89,33 +92,45 @@ async def measure_model_speed(model_name: str, ollama_base_url: str) -> float:
                     ],
                     "stream": True,
                     "options": {
-                        "num_predict": 100,  # Generate ~100 tokens
+                        "num_predict": 50,  # Reduced for faster benchmark
                     }
                 }
             ) as response:
                 if response.status_code != 200:
+                    logger.warning(f"Speed test failed for {model_name}: {response.status_code}")
                     return 0.0
                 
                 async for line in response.aiter_lines():
                     if line:
                         try:
                             data = json.loads(line)
+                            
+                            # Use actual token count if available (more accurate)
+                            if "eval_count" in data:
+                                actual_tokens = data.get("eval_count", 0)
+                            
                             chunk = data.get("message", {}).get("content", "")
                             if chunk:
-                                # Rough token estimation (1 token ≈ 4 characters)
+                                # Fallback: estimate tokens (1 token ≈ 4 characters)
                                 tokens_generated += len(chunk) / 4
                             
                             if data.get("done", False):
+                                # Use actual token count if we have it
+                                if actual_tokens > 0:
+                                    tokens_generated = actual_tokens
                                 break
                         except json.JSONDecodeError:
                             continue
                 
                 elapsed = time.time() - start_time
-                if elapsed > 0:
+                if elapsed > 0 and tokens_generated > 0:
                     tokens_per_sec = tokens_generated / elapsed
                     return round(tokens_per_sec, 1)
                 return 0.0
                 
+    except httpx.TimeoutException:
+        logger.warning(f"Speed test timeout for {model_name}")
+        return 0.0
     except Exception as e:
         logger.error(f"Error measuring speed for {model_name}: {e}")
         return 0.0
@@ -124,6 +139,7 @@ async def measure_model_speed(model_name: str, ollama_base_url: str) -> float:
 async def get_model_memory_usage(model_name: str, ollama_base_url: str) -> float:
     """
     Get memory usage for a model from Ollama API.
+    Uses actual file size from disk or parameter count for accuracy.
     
     Args:
         model_name: Name of the model
@@ -135,7 +151,7 @@ async def get_model_memory_usage(model_name: str, ollama_base_url: str) -> float
     try:
         timeout = httpx.Timeout(10.0, connect=5.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
-            # Try to get model info from Ollama
+            # Get model info from Ollama
             response = await client.post(
                 f"{ollama_base_url}/api/show",
                 json={"name": model_name}
@@ -143,39 +159,66 @@ async def get_model_memory_usage(model_name: str, ollama_base_url: str) -> float
             
             if response.status_code == 200:
                 data = response.json()
-                # Ollama returns size in bytes - check multiple possible fields
-                size_bytes = data.get("size", 0) or data.get("model_size", 0) or data.get("file_size", 0)
                 
-                # Also check modelfile for size info
-                if size_bytes == 0:
-                    modelfile = data.get("modelfile", "")
-                    # Try to extract size from modelfile or use model details
-                    model_details = data.get("details", {})
-                    if model_details:
-                        size_bytes = model_details.get("size", 0) or model_details.get("model_size", 0)
+                # Method 1: Calculate from parameter count and quantization (most accurate)
+                model_info = data.get("model_info", {})
+                if model_info:
+                    param_count = model_info.get("general.parameter_count", 0)
+                    if param_count > 0:
+                        # Get quantization level from details
+                        details = data.get("details", {})
+                        quant_level = details.get("quantization_level", "Q4_K_M")
+                        
+                        # Calculate size based on quantization bits per parameter
+                        bits_per_param = {
+                            "Q2_K": 2.2, "Q3_K_M": 3.2, "Q3_K_S": 3.1,
+                            "Q4_K_M": 4.5, "Q4_K_S": 4.3, "Q4_0": 4.0,
+                            "Q5_K_M": 5.4, "Q5_K_S": 5.2, "Q5_0": 5.0,
+                            "Q6_K": 6.2, "Q8_0": 8.0,
+                            "F16": 16.0, "F32": 32.0
+                        }
+                        
+                        bits = bits_per_param.get(quant_level, 4.5)  # Default Q4_K_M
+                        size_bytes = (param_count * bits) / 8
+                        size_gb = size_bytes / (1024 ** 3)
+                        return round(size_gb, 2)
                 
-                if size_bytes > 0:
-                    size_gb = size_bytes / (1024 ** 3)
-                    return round(size_gb, 2)
+                # Method 2: Try to get size from modelfile path
+                modelfile = data.get("modelfile", "")
+                if "FROM" in modelfile and "blobs" in modelfile:
+                    # Extract blob path and try to get file size
+                    import os
+                    import re
+                    match = re.search(r'FROM\s+([^\s]+)', modelfile)
+                    if match:
+                        blob_path = match.group(1)
+                        if os.path.exists(blob_path):
+                            size_bytes = os.path.getsize(blob_path)
+                            size_gb = size_bytes / (1024 ** 3)
+                            return round(size_gb, 2)
             
-            # Fallback: estimate based on model name (more accurate)
+            # Fallback: estimate based on model name and quantization
             model_lower = model_name.lower()
+            details = data.get("details", {}) if response.status_code == 200 else {}
+            quant = details.get("quantization_level", "Q4_K_M")
+            
+            # More accurate estimates based on quantization
             if "8b" in model_lower or ":8b" in model_lower:
-                return 4.5  # Quantized 8B models are ~4.5GB
+                return 4.5 if "Q4" in quant else 7.0
             elif "7b" in model_lower or ":7b" in model_lower:
-                return 4.0  # Quantized 7B models are ~4GB
+                return 4.0 if "Q4" in quant else 6.5
             elif "3.8b" in model_lower or "3.8" in model_lower:
-                return 2.3  # Phi-3.8B quantized
+                return 2.3 if "Q4" in quant else 3.5
             elif "3b" in model_lower or ":3b" in model_lower:
-                return 2.0  # Quantized 3B models are ~2GB
+                return 2.0 if "Q4" in quant else 3.0
             elif "tiny" in model_lower:
-                return 0.6  # TinyLlama is ~600MB
+                return 0.6
             else:
-                return 2.0  # Default estimate
+                return 2.0
                     
     except Exception as e:
         logger.debug(f"Error getting memory usage for {model_name}: {e}")
-        # Fallback estimation based on model name
+        # Fallback estimation
         model_lower = model_name.lower()
         if "8b" in model_lower or ":8b" in model_lower:
             return 4.5
@@ -289,28 +332,32 @@ async def get_benchmarks(ollama_base_url: str) -> List[Dict]:
             try:
                 logger.info(f"Benchmarking model: {model_name}")
                 
-                # Measure speed
-                speed = await measure_model_speed(model_name, ollama_base_url)
-                
-                # Get memory usage
+                # Get memory usage first (fast, no model loading needed)
                 memory = await get_model_memory_usage(model_name, ollama_base_url)
                 
-                # Measure latency
+                # Measure speed (may take time, especially for large models)
+                speed = await measure_model_speed(model_name, ollama_base_url)
+                
+                # Measure latency (quick health check)
                 latency = await measure_model_latency(model_name, ollama_base_url)
                 
                 # Calculate quality score
                 quality = calculate_quality_score(model_name, speed, memory)
                 
-                benchmarks.append({
-                    "model": model_name,
-                    "speed_tokens_per_sec": speed,
-                    "speed_display": f"{speed} tok/s" if speed > 0 else "N/A",
-                    "memory_gb": memory,
-                    "memory_display": f"{memory}GB",
-                    "latency_ms": latency,
-                    "quality_score": quality,
-                    "last_benchmarked": datetime.now().isoformat()
-                })
+                # Only add if we got at least memory or speed
+                if memory > 0 or speed > 0:
+                    benchmarks.append({
+                        "model": model_name,
+                        "speed_tokens_per_sec": speed,
+                        "speed_display": f"{speed} tok/s" if speed > 0 else "N/A",
+                        "memory_gb": memory,
+                        "memory_display": f"{memory}GB",
+                        "latency_ms": latency,
+                        "quality_score": quality,
+                        "last_benchmarked": datetime.now().isoformat()
+                    })
+                else:
+                    logger.warning(f"Skipping {model_name}: no valid data collected")
                 
             except Exception as e:
                 logger.error(f"Error benchmarking model {model_name}: {e}")
