@@ -30,7 +30,7 @@ services:
       - "3100:3000"
     # Override environment variables for homelab
     environment:
-      - NEXT_PUBLIC_API_URL=http://portfolio-api.medevs.local
+      - NEXT_PUBLIC_API_URL=https://portfolio-api.medevs.local
       - NEXT_PUBLIC_ADMIN_API_KEY=${ADMIN_API_KEY}
     pull_policy: always  # Always pull latest image
 
