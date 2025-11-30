@@ -20,7 +20,7 @@ export const homelabOverview: HomelabOverview = {
     "Containerization: Docker & Docker Compose",
     "Reverse Proxy: Nginx Proxy Manager",
     "Monitoring: Prometheus, Grafana, cAdvisor",
-    "CI/CD: GitHub Actions + GHCR + Watchtower",
+    "CI/CD: GitHub Actions + GHCR",
     "LLM: Ollama (local models)",
     "Vector DB: ChromaDB",
   ],
@@ -132,15 +132,14 @@ export const journeyMilestones: JourneyMilestone[] = [
   {
     day: "Day 11",
     title: "CI/CD Automation with GitHub Actions",
-    description: "Implemented fully automated CI/CD pipeline. GitHub Actions builds Docker images, pushes to GHCR, and Watchtower automatically updates containers on the server.",
+    description: "Implemented fully automated CI/CD pipeline. GitHub Actions builds Docker images and pushes to GHCR for deployment.",
     achievements: [
       "GitHub Actions workflow created",
       "Docker images built automatically",
       "GitHub Container Registry (GHCR) setup",
       "Server authentication to GHCR",
-      "Watchtower installed for auto-updates",
       "Docker Compose updated to use GHCR images",
-      "Zero-touch deployment pipeline",
+      "Automated deployment pipeline",
     ],
     badge: "DevOps",
   },
@@ -211,11 +210,6 @@ export const homelabServices: HomelabService[] = [
     description: "Local LLM server",
     port: "11434",
     icon: <Zap className="w-5 h-5 text-amber-500" />,
-  },
-  {
-    name: "Watchtower",
-    description: "Automatic container updates",
-    icon: <Server className="w-5 h-5 text-amber-500" />,
   },
   {
     name: "Portfolio App",
