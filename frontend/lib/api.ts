@@ -58,6 +58,46 @@ export interface KBStats {
 }
 
 /**
+ * System metrics from homelab
+ */
+export interface SystemMetrics {
+  cpu_usage: number;
+  ram_usage_gb: number;
+  ram_usage_percent: number;
+  ram_total_gb: number;
+  uptime_days: number;
+  uptime_hours: number;
+  uptime_percent: number;
+  disk_usage_percent: number;
+  disk_free_gb: number;
+  model_latency_ms: number;
+  timestamp: string;
+  error?: string;
+}
+
+/**
+ * Benchmark result for a single model
+ */
+export interface BenchmarkResult {
+  model: string;
+  speed_tokens_per_sec: number;
+  speed_display: string;
+  memory_gb: number;
+  memory_display: string;
+  latency_ms: number;
+  quality_score: number;
+  last_benchmarked: string;
+}
+
+/**
+ * Benchmarks response
+ */
+export interface BenchmarksResponse {
+  benchmarks: BenchmarkResult[];
+  timestamp: string;
+}
+
+/**
  * Health status response
  */
 export interface HealthStatus {
@@ -175,19 +215,61 @@ class ApiClient {
     return response.json();
   }
 
-  /**
-   * Get knowledge base statistics (uses /admin/stats endpoint)
-   */
-  async getStats(): Promise<KBStats> {
-    const response = await fetch(`${this.baseUrl}/admin/stats`, {
+/**
+ * Get knowledge base statistics (uses /admin/stats endpoint)
+ */
+async getStats(): Promise<KBStats> {
+  const response = await fetch(`${this.baseUrl}/admin/stats`, {
+    headers: {
+      "X-Admin-Key": this.adminKey,
+    },
+  });
+
+  if (!response.ok) throw new Error("Failed to get stats");
+  return response.json();
+}
+
+/**
+ * Get system metrics from homelab
+ */
+async getSystemMetrics(): Promise<SystemMetrics> {
+  try {
+    const response = await fetch(`${this.baseUrl}/metrics/system`, {
+      method: "GET",
       headers: {
-        "X-Admin-Key": this.adminKey,
+        "Content-Type": "application/json",
       },
     });
-
-    if (!response.ok) throw new Error("Failed to get stats");
+    if (!response.ok) {
+      throw new Error(`Failed to get system metrics: ${response.status} ${response.statusText}`);
+    }
     return response.json();
+  } catch (error) {
+    console.error("Error fetching system metrics:", error);
+    throw error;
   }
+}
+
+/**
+ * Get LLM performance benchmarks
+ */
+async getBenchmarks(): Promise<BenchmarksResponse> {
+  try {
+    const response = await fetch(`${this.baseUrl}/metrics/benchmarks`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to get benchmarks: ${response.status} ${response.statusText}`);
+    }
+    return response.json();
+  } catch (error) {
+    console.error("Error fetching benchmarks:", error);
+    throw error;
+  }
+}
 }
 
 // Export singleton instance
