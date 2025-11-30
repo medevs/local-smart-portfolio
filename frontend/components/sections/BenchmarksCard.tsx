@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, Loader2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -10,9 +10,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { benchmarks } from "@/data/metrics";
+import { useBenchmarks } from "@/hooks/useBenchmarks";
 
 export function BenchmarksCard() {
+  const { benchmarks, loading, error } = useBenchmarks();
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -26,50 +28,67 @@ export function BenchmarksCard() {
             LLM Performance Benchmarks
           </CardTitle>
           <CardDescription className="text-amber-200/60">
-            Comparative analysis of local models on my homelab
+            {loading ? "Loading benchmarks..." : error ? "Unable to fetch benchmarks" : "Comparative analysis of local models on my homelab"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-amber-800/30">
-                  <th className="text-left py-3 px-4 text-amber-200">Model</th>
-                  <th className="text-left py-3 px-4 text-amber-200">Speed</th>
-                  <th className="text-left py-3 px-4 text-amber-200">Quality</th>
-                  <th className="text-left py-3 px-4 text-amber-200">Memory</th>
-                </tr>
-              </thead>
-              <tbody>
-                {benchmarks.map((bench, index) => (
-                  <motion.tr
-                    key={bench.model}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.1 * index }}
-                    className="border-b border-amber-800/20 hover:bg-amber-900/20 transition-colors"
-                  >
-                    <td className="py-3 px-4 text-amber-100 font-medium">
-                      {bench.model}
-                    </td>
-                    <td className="py-3 px-4 text-amber-200/80">{bench.speed}</td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <Progress
-                          value={bench.quality}
-                          className="h-2 w-20 bg-amber-950/50"
-                        />
-                        <span className="text-amber-200/80 text-sm">
-                          {bench.quality}%
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-amber-200/80">{bench.memory}</td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 text-amber-500 animate-spin" />
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <BarChart3 className="w-8 h-8 text-amber-500/50 mb-2" />
+              <p className="text-amber-200/60 text-sm">{error}</p>
+              <p className="text-amber-300/40 text-xs mt-1">Make sure the backend is running</p>
+            </div>
+          ) : benchmarks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <BarChart3 className="w-8 h-8 text-amber-500/50 mb-2" />
+              <p className="text-amber-200/60 text-sm">No benchmarks available</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-amber-800/30">
+                    <th className="text-left py-3 px-4 text-amber-200">Model</th>
+                    <th className="text-left py-3 px-4 text-amber-200">Speed</th>
+                    <th className="text-left py-3 px-4 text-amber-200">Quality</th>
+                    <th className="text-left py-3 px-4 text-amber-200">Memory</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {benchmarks.map((bench, index) => (
+                    <motion.tr
+                      key={bench.model}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1 * index }}
+                      className="border-b border-amber-800/20 hover:bg-amber-900/20 transition-colors"
+                    >
+                      <td className="py-3 px-4 text-amber-100 font-medium">
+                        {bench.model}
+                      </td>
+                      <td className="py-3 px-4 text-amber-200/80">{bench.speed}</td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <Progress
+                            value={bench.quality}
+                            className="h-2 w-20 bg-amber-950/50"
+                          />
+                          <span className="text-amber-200/80 text-sm">
+                            {bench.quality}%
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-amber-200/80">{bench.memory}</td>
+                    </motion.tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </motion.div>
