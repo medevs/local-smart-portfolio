@@ -51,6 +51,7 @@ jobs:
           username: ${{ secrets.HOMELAB_USER }}
           key: ${{ secrets.HOMELAB_SSH_KEY }}
           port: ${{ secrets.HOMELAB_SSH_PORT }}
+          script_stop: true
           script: |
             set -e
             cd ~/projects/local-smart-portfolio
