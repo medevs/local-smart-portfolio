@@ -4,14 +4,14 @@
 # Development and Production-ready configuration
 # =============================================================================
 
-version: '3.8'
-
 services:
   # ===========================================================================
   # Backend Service (FastAPI)
   # ===========================================================================
   backend:
-    image: ghcr.io/medevs/portfolio-backend:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: portfolio-backend
     restart: unless-stopped
     ports:
@@ -74,7 +74,9 @@ services:
   # Frontend Service (Next.js)
   # ===========================================================================
   frontend:
-    image: ghcr.io/medevs/portfolio-frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: portfolio-frontend
     restart: unless-stopped
     ports:
