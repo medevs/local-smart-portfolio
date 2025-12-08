@@ -40,7 +40,7 @@ A modern, self-hosted portfolio website with an AI assistant powered by local LL
 - **Language**: Python 3.11+
 - **Vector DB**: ChromaDB
 - **LLM**: Ollama (local models)
-- **Embeddings**: sentence-transformers
+- **Embeddings**: Ollama (nomic-embed-text)
 
 ---
 
@@ -78,6 +78,9 @@ Edit `backend/.env`:
 # Ollama Configuration
 OLLAMA_BASE_URL=http://ollama:11434
 OLLAMA_MODEL=llama3.2:3b
+
+# Embedding Model (Ollama)
+EMBEDDING_MODEL=nomic-embed-text
 
 # ChromaDB Configuration
 CHROMA_PERSIST_DIR=./data/chroma_db
@@ -124,14 +127,9 @@ docker compose up -d
 docker compose ps
 ```
 
-### Step 5: Initialize Ollama Model
+### Step 5: Access the Application
 
-```bash
-# Download the LLM model (this may take 5-15 minutes, ~2GB)
-docker compose exec ollama ollama pull llama3.2:3b
-```
-
-### Step 6: Access the Application
+> **Note**: The `ollama-init` service automatically pulls required models (llama3.2:3b for LLM, nomic-embed-text for embeddings) on first startup. This may take 5-15 minutes depending on your connection.
 
 - **Portfolio**: http://localhost:3000
 - **Admin Dashboard**: http://localhost:3000/admin
@@ -191,8 +189,9 @@ npm run dev
 # Then start the service
 ollama serve
 
-# Download the model
-ollama pull llama3.2:3b
+# Download the required models
+ollama pull llama3.2:3b        # LLM model
+ollama pull nomic-embed-text   # Embedding model
 ```
 
 ---
@@ -263,13 +262,25 @@ The portfolio uses an amber/gold color scheme. To customize:
 3. **Components**: Modify Tailwind classes in component files
 4. **Theme**: Adjust colors in `frontend/components/layout/ClientLayout.tsx`
 
-### Change AI Model
+### Change AI Models
 
-To use a different Ollama model:
-
-1. Update `OLLAMA_MODEL` in `backend/.env`
+**To change the LLM model:**
+1. Update `OLLAMA_MODEL` in `backend/.env` (or docker-compose.yml)
 2. Pull the new model: `docker compose exec ollama ollama pull <model-name>`
 3. Restart the backend: `docker compose restart backend`
+
+**To change the embedding model:**
+1. Update `EMBEDDING_MODEL` in `backend/.env` (or docker-compose.yml)
+2. Pull the new model: `docker compose exec ollama ollama pull <model-name>`
+3. Reset ChromaDB (embeddings have different dimensions):
+   ```bash
+   docker compose down
+   docker volume rm portfolio_chroma_data
+   docker compose up -d
+   ```
+4. Re-ingest your documents
+
+> **Note**: The backend auto-detects embedding dimension mismatches and resets the collection automatically on startup.
 
 ---
 
@@ -519,11 +530,13 @@ docker compose up -d --build
 ### Ollama model not loading
 
 ```bash
-# Check Ollama logs
+# Check Ollama and ollama-init logs
 docker compose logs ollama
+docker compose logs ollama-init
 
-# Manually pull the model
+# Manually pull the models
 docker compose exec ollama ollama pull llama3.2:3b
+docker compose exec ollama ollama pull nomic-embed-text
 
 # List available models
 docker compose exec ollama ollama list
@@ -555,6 +568,8 @@ docker compose down
 docker volume rm portfolio_chroma_data
 docker compose up -d
 ```
+
+> **Note**: If you change embedding models, the backend will auto-detect dimension mismatches and reset the collection on startup. You'll see a log message prompting you to re-ingest documents.
 
 ---
 
@@ -597,4 +612,3 @@ MIT License - feel free to use this for your own portfolio!
 **Built with ❤️ using modern web technologies and AI**
 
 </div>
-# Test SSH fix
