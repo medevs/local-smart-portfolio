@@ -58,6 +58,9 @@ jobs:
           set -e
           cd ~/projects/local-smart-portfolio
 
+          echo "📦 Pulling latest code from GitHub..."
+          git pull origin main
+
           echo "📥 Pulling latest GHCR images..."
           docker compose -f docker-compose.yml -f docker-compose.homelab.yml pull
 
