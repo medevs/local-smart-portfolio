@@ -22,15 +22,18 @@ services:
   # ===========================================================================
   # Frontend Service - Use GHCR Image
   # ===========================================================================
+  # NOTE: NEXT_PUBLIC_API_URL is baked into the image at build time via
+  # GitHub Actions (see .github/workflows/deploy.yml). Runtime environment
+  # variables for NEXT_PUBLIC_* do NOT work - they must be build args.
+  # To change the API URL, update the NEXT_PUBLIC_API_URL secret in GitHub
+  # or modify the default in deploy.yml, then trigger a new build.
+  # ===========================================================================
   frontend:
-    # Remove build section and use GHCR image instead
     image: ghcr.io/medevs/portfolio-frontend:latest
-    # Override ports for homelab
     ports:
       - "3100:3000"
-    # Override environment variables for homelab
     environment:
-      - NEXT_PUBLIC_API_URL=https://portfolio-api.medevs.local
+      # Only non-NEXT_PUBLIC_* runtime vars work here
       - NEXT_PUBLIC_ADMIN_API_KEY=${ADMIN_API_KEY}
-    pull_policy: always  # Always pull latest image
+    pull_policy: always
 

@@ -20,12 +20,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_TOKEN }}
 
+      # IMPORTANT: NEXT_PUBLIC_* vars are build-time only in Next.js!
+      # They get embedded into the JS bundle during build.
+      # Set NEXT_PUBLIC_API_URL secret in GitHub repo settings, or change the default below.
+      # This should be the URL where users' browsers can reach the backend API.
       - name: Build frontend image
         run: |
           API_URL="${{ secrets.NEXT_PUBLIC_API_URL }}"
           if [ -z "$API_URL" ]; then
             API_URL="https://portfolio-api.medevs.local"
           fi
+          echo "Building frontend with API_URL: ${API_URL}"
           docker build \
             --build-arg NEXT_PUBLIC_API_URL=${API_URL} \
             -t ghcr.io/${{ github.repository_owner }}/portfolio-frontend:latest \
