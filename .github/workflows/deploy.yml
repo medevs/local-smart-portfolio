@@ -57,10 +57,10 @@ jobs:
         run: |
           set -e
           cd ~/projects/local-smart-portfolio
-          echo "📥 Pulling latest images..."
-          docker compose pull
-          echo "🔄 Recreating containers..."
-          docker compose up -d --force-recreate
+          echo "📥 Pulling latest GHCR images..."
+          docker compose -f docker-compose.yml -f docker-compose.homelab.yml pull
+          echo "🔄 Recreating containers with homelab overrides..."
+          docker compose -f docker-compose.yml -f docker-compose.homelab.yml up -d --force-recreate
           echo "🧹 Cleaning up old images..."
           docker image prune -f
           echo "✅ Deployment complete!"
