@@ -43,8 +43,8 @@ class Settings(BaseSettings):
     chunk_overlap: int = Field(default=50)
     top_k_results: int = Field(default=3)
     
-    # Embedding Model
-    embedding_model: str = Field(default="all-MiniLM-L6-v2")
+    # Embedding Model (Ollama embedding model)
+    embedding_model: str = Field(default="nomic-embed-text")
     
     # Admin Settings (REQUIRED - no default for security)
     admin_api_key: str = Field(
