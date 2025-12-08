@@ -69,8 +69,8 @@ jobs:
           # (llama3.2:3b for LLM, nomic-embed-text for embeddings)
           docker compose -f docker-compose.yml -f docker-compose.homelab.yml up -d --force-recreate
 
-          echo "⏳ Waiting for ollama-init to complete model pulls..."
-          docker compose -f docker-compose.yml -f docker-compose.homelab.yml logs -f ollama-init || true
+          echo "📋 Checking ollama-init logs..."
+          docker compose -f docker-compose.yml -f docker-compose.homelab.yml logs ollama-init || true
 
           echo "🧹 Cleaning up old images..."
           docker image prune -f
