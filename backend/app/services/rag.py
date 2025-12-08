@@ -1,6 +1,12 @@
 """
 RAG (Retrieval-Augmented Generation) service.
 Combines document retrieval with LLM generation.
+
+Now uses Advanced RAG pipeline with:
+- Query routing (skip RAG for greetings)
+- Query rewriting (improve queries for better retrieval)
+- Hybrid search (semantic + keyword/BM25)
+- Re-ranking (cross-encoder scoring)
 """
 
 from typing import List, Optional, Dict, Any, AsyncGenerator
@@ -9,16 +15,34 @@ from app.utils.logger import logger
 from app.services.chroma_client import get_chroma_service
 from app.services.ollama_client import get_ollama_client
 from app.services.document_loader import get_document_loader
+from app.services.advanced_rag import get_advanced_rag
 
 
 class RAGService:
-    """Service for RAG-based question answering."""
+    """Service for RAG-based question answering with Advanced RAG pipeline."""
 
-    def __init__(self):
+    def __init__(self, use_advanced_rag: bool = True):
+        """
+        Initialize RAG service.
+
+        Args:
+            use_advanced_rag: Whether to use the advanced RAG pipeline
+        """
         self.settings = get_settings()
         self.chroma = get_chroma_service()
         self.ollama = get_ollama_client()
         self.document_loader = get_document_loader()
+        self.use_advanced_rag = use_advanced_rag
+
+        # Advanced RAG pipeline (lazy loaded)
+        self._advanced_rag = None
+
+    @property
+    def advanced_rag(self):
+        """Lazy load advanced RAG pipeline."""
+        if self._advanced_rag is None and self.use_advanced_rag:
+            self._advanced_rag = get_advanced_rag()
+        return self._advanced_rag
 
     def _expand_query(self, query: str) -> str:
         """
@@ -50,7 +74,7 @@ class RAGService:
         self, query: str, top_k: Optional[int] = None
     ) -> tuple[str, List[str]]:
         """
-        Retrieve relevant context for a query with improved retrieval.
+        Retrieve relevant context for a query (basic retrieval).
 
         Args:
             query: The user's question
@@ -71,7 +95,6 @@ class RAGService:
 
         documents = results.get("documents", [])
         metadatas = results.get("metadatas", [])
-        distances = results.get("distances", [])
 
         if not documents:
             logger.debug("No relevant documents found in RAG")
@@ -81,7 +104,7 @@ class RAGService:
         context_parts = []
         sources = set()
 
-        for i, (doc, meta) in enumerate(zip(documents, metadatas)):
+        for doc, meta in zip(documents, metadatas):
             filename = meta.get("filename", "Unknown")
             sources.add(filename)
 
@@ -108,6 +131,12 @@ class RAGService:
         """
         Answer a question using RAG.
 
+        Uses Advanced RAG pipeline if enabled:
+        - Query routing to skip RAG for greetings/chitchat
+        - Query rewriting for better retrieval
+        - Hybrid search (semantic + keyword)
+        - Re-ranking for better relevance
+
         Args:
             question: User's question
             history: Previous conversation history
@@ -115,10 +144,14 @@ class RAGService:
         Returns:
             Dict with response and sources
         """
-        # Retrieve relevant context
+        # Use advanced RAG pipeline if enabled
+        if self.use_advanced_rag and self.advanced_rag:
+            logger.info("Using Advanced RAG pipeline")
+            return await self.advanced_rag.query(question, history)
+
+        # Fallback to basic RAG
         context, sources = self.retrieve_context(question)
 
-        # Generate response
         response = await self.ollama.generate(
             query=question, context=context, history=history
         )
@@ -134,6 +167,8 @@ class RAGService:
         """
         Answer a question using RAG with streaming response.
 
+        Uses Advanced RAG pipeline if enabled.
+
         Args:
             question: User's question
             history: Previous conversation history
@@ -141,10 +176,16 @@ class RAGService:
         Yields:
             Dicts with response chunks and metadata
         """
-        # Retrieve relevant context
+        # Use advanced RAG pipeline if enabled
+        if self.use_advanced_rag and self.advanced_rag:
+            logger.info("Using Advanced RAG pipeline (streaming)")
+            async for chunk in self.advanced_rag.query_stream(question, history):
+                yield chunk
+            return
+
+        # Fallback to basic RAG
         context, sources = self.retrieve_context(question)
 
-        # Stream response
         async for chunk in self.ollama.generate_stream(
             query=question, context=context, history=history
         ):
@@ -154,7 +195,6 @@ class RAGService:
                 "sources": None,
             }
 
-        # Final message with sources
         yield {
             "chunk": "",
             "done": True,
@@ -203,6 +243,10 @@ class RAGService:
 
         logger.info(f"Ingested document: {filename} ({len(chunks)} chunks)")
 
+        # Refresh hybrid search index for advanced RAG
+        if self.use_advanced_rag and self.advanced_rag:
+            self.advanced_rag.refresh_index()
+
         return {
             "success": True,
             "document_id": result["document_id"],
@@ -229,6 +273,10 @@ class RAGService:
         file_deleted = self.document_loader.delete_file(document_id)
 
         if db_deleted or file_deleted:
+            # Refresh hybrid search index for advanced RAG
+            if self.use_advanced_rag and self.advanced_rag:
+                self.advanced_rag.refresh_index()
+
             return {
                 "success": True,
                 "message": f"Document {document_id} deleted",
