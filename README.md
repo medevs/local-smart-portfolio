@@ -58,8 +58,8 @@ A modern, self-hosted portfolio website with an AI assistant powered by local LL
 ### Step 1: Clone the Repository
 
 ```bash
-git clone <repository-url>
-cd portfolio
+git clone https://github.com/medevs/local-smart-portfolio.git
+cd local-smart-portfolio
 ```
 
 ### Step 2: Configure Environment Variables
@@ -105,12 +105,14 @@ openssl rand -base64 32
 
 ### Step 3: Configure Frontend
 
-Create `frontend/.env.local`:
+Create `frontend/.env.local` (for local development without Docker):
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_ADMIN_API_KEY=your-admin-api-key-here
 ```
+
+> **Note for Docker users**: `NEXT_PUBLIC_API_URL` is already configured as a build argument in `docker-compose.yml`. The `.env.local` file is only needed for local development without Docker.
 
 ### Step 4: Start Services
 
@@ -198,7 +200,7 @@ ollama pull llama3.2:3b
 ## 📁 Project Structure
 
 ```
-portfolio/
+local-smart-portfolio/
 ├── backend/              # FastAPI backend
 │   ├── app/
 │   │   ├── routers/      # API endpoints
@@ -529,10 +531,21 @@ docker compose exec ollama ollama list
 
 ### Frontend can't connect to backend
 
-1. Check `NEXT_PUBLIC_API_URL` in `frontend/.env.local`
-2. Verify backend is running: `docker compose ps`
-3. Check CORS settings in `backend/.env`
-4. Check browser console for errors
+1. **Docker users**: `NEXT_PUBLIC_API_URL` must be passed as a **build argument**, not a runtime environment variable. Check your `docker-compose.yml`:
+   ```yaml
+   frontend:
+     build:
+       args:
+         - NEXT_PUBLIC_API_URL=http://localhost:8000  # Must be build arg!
+   ```
+   Then rebuild: `docker compose build frontend --no-cache && docker compose up -d`
+
+2. **Local development**: Check `NEXT_PUBLIC_API_URL` in `frontend/.env.local`
+3. Verify backend is running: `docker compose ps`
+4. Check CORS settings in `backend/.env`
+5. Check browser console for errors
+
+**Why `localhost` instead of `backend`?** The frontend JavaScript runs in your browser, which cannot resolve Docker's internal hostnames like `backend`. Use `http://localhost:8000` since port 8000 is exposed to your host machine.
 
 ### ChromaDB issues
 
