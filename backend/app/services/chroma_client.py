@@ -47,7 +47,52 @@ class ChromaService:
                 metadata={"description": "Portfolio document embeddings"}
             )
             logger.info(f"Using collection: {self.collection_name}")
+            # Check for embedding dimension mismatch on first access
+            self._validate_embedding_dimension()
         return self._collection
+
+    def _validate_embedding_dimension(self) -> None:
+        """
+        Validate that stored embeddings match current model's dimension.
+        Auto-resets collection if there's a mismatch to prevent errors.
+        """
+        try:
+            # Get expected dimension from embedding service
+            expected_dim = self.embedding_service.get_embedding_dimension()
+
+            # Check if collection has any documents
+            if self._collection.count() == 0:
+                logger.info(f"Empty collection, will use {expected_dim}-dim embeddings")
+                return
+
+            # Sample one document to check stored dimension
+            sample = self._collection.get(limit=1, include=["embeddings"])
+            if not sample or not sample.get("embeddings") or not sample["embeddings"][0]:
+                return
+
+            stored_dim = len(sample["embeddings"][0])
+
+            if stored_dim != expected_dim:
+                logger.warning(
+                    f"Embedding dimension mismatch detected! "
+                    f"Stored: {stored_dim}, Expected: {expected_dim}. "
+                    f"Auto-resetting collection..."
+                )
+                # Reset collection to fix dimension mismatch
+                self.client.delete_collection(self.collection_name)
+                self._collection = self.client.get_or_create_collection(
+                    name=self.collection_name,
+                    metadata={"description": "Portfolio document embeddings"}
+                )
+                logger.info(
+                    f"Collection reset complete. "
+                    f"Please re-ingest documents with {expected_dim}-dim embeddings."
+                )
+            else:
+                logger.info(f"Embedding dimension OK: {stored_dim}")
+
+        except Exception as e:
+            logger.error(f"Error validating embedding dimension: {e}")
     
     def check_connection(self) -> bool:
         """Check if ChromaDB is accessible."""
