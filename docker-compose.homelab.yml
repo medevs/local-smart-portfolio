@@ -1,5 +1,5 @@
 # =============================================================================
-# Docker Compose - Homelab Override (OPTIONAL)
+# Docker Compose - Homelab Override
 # =============================================================================
 # This file is for homelab/CI-CD deployments using GHCR images
 # Regular users should use docker-compose.yml directly
@@ -7,17 +7,15 @@
 # Use with: docker compose -f docker-compose.yml -f docker-compose.homelab.yml up -d
 # =============================================================================
 
-version: '3.8'
-
 services:
   # ===========================================================================
   # Backend Service - Use GHCR Image
   # ===========================================================================
   backend:
-    # Remove build section and use GHCR image instead
+    # Override build with GHCR image
     image: ghcr.io/medevs/portfolio-backend:latest
-    # Keep all other settings from base compose
-    pull_policy: always  # Always pull latest image
+    build: !reset null
+    pull_policy: always
 
   # ===========================================================================
   # Frontend Service - Use GHCR Image
@@ -30,6 +28,7 @@ services:
   # ===========================================================================
   frontend:
     image: ghcr.io/medevs/portfolio-frontend:latest
+    build: !reset null
     ports:
       - "3100:3000"
     environment:
@@ -37,3 +36,9 @@ services:
       - NEXT_PUBLIC_ADMIN_API_KEY=${ADMIN_API_KEY}
     pull_policy: always
 
+  # ===========================================================================
+  # Ollama Init - Inherits from base compose
+  # ===========================================================================
+  # The ollama-init service from docker-compose.yml handles model pulling.
+  # No override needed - it will pull models defined in environment vars.
+  # ===========================================================================
