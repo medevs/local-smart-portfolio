@@ -32,5 +32,17 @@ loguru>=0.7.0
 aiofiles>=24.0.0
 psutil>=5.9.0
 
+# Rate Limiting
+slowapi>=0.1.9
+
+# Observability (optional - install for Langfuse tracing)
+langfuse>=2.0.0
+
+# Testing
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+pytest-cov>=4.1.0
+httpx>=0.27.0
+
 # Development
 watchfiles>=0.24.0
