@@ -51,6 +51,12 @@ class Settings(BaseSettings):
         default="",
         description="Admin API key for protected endpoints. Set via ADMIN_API_KEY env var."
     )
+
+    # Langfuse Observability Settings (Optional)
+    langfuse_public_key: str = Field(default="", description="Langfuse public key")
+    langfuse_secret_key: str = Field(default="", description="Langfuse secret key")
+    langfuse_host: str = Field(default="http://localhost:3001", description="Langfuse host URL")
+    langfuse_enabled: bool = Field(default=False, description="Enable Langfuse observability")
     
     def validate_admin_key(self) -> bool:
         """Check if admin API key is properly configured."""
