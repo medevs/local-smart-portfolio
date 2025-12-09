@@ -52,6 +52,12 @@ services:
 
       # Security (REQUIRED - set in .env file)
       - ADMIN_API_KEY=${ADMIN_API_KEY}
+
+      # Langfuse Observability (Optional)
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
+      - LANGFUSE_HOST=${LANGFUSE_HOST:-http://langfuse:3000}
+      - LANGFUSE_ENABLED=${LANGFUSE_ENABLED:-false}
     volumes:
       # Persist ChromaDB data
       - chroma_data:/app/data/chroma_db
@@ -183,6 +189,55 @@ services:
         echo "=== All models ready! ==="
     restart: "no"
 
+  # ===========================================================================
+  # Langfuse Service (LLM Observability) - OPTIONAL
+  # ===========================================================================
+  # Self-hosted Langfuse for LLM tracing and monitoring
+  # Enable by setting LANGFUSE_ENABLED=true in .env
+  # ===========================================================================
+  langfuse:
+    image: langfuse/langfuse:latest
+    container_name: portfolio-langfuse
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - DATABASE_URL=postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
+      - NEXTAUTH_SECRET=${LANGFUSE_NEXTAUTH_SECRET:-your-nextauth-secret-min-32-chars}
+      - SALT=${LANGFUSE_SALT:-your-salt-min-32-chars}
+      - NEXTAUTH_URL=http://localhost:3001
+      - TELEMETRY_ENABLED=false
+    networks:
+      - portfolio-network
+    depends_on:
+      langfuse-db:
+        condition: service_healthy
+    profiles:
+      - observability
+
+  # ===========================================================================
+  # Langfuse PostgreSQL Database - OPTIONAL
+  # ===========================================================================
+  langfuse-db:
+    image: postgres:15-alpine
+    container_name: portfolio-langfuse-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=langfuse
+      - POSTGRES_PASSWORD=langfuse
+      - POSTGRES_DB=langfuse
+    volumes:
+      - langfuse_postgres_data:/var/lib/postgresql/data
+    networks:
+      - portfolio-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U langfuse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - observability
+
 # =============================================================================
 # Volumes (Data Persistence)
 # =============================================================================
@@ -194,6 +249,8 @@ volumes:
   backend_logs:
     driver: local
   ollama_data:
+    driver: local
+  langfuse_postgres_data:
     driver: local
 
 # =============================================================================
