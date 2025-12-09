@@ -9,9 +9,13 @@ from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import time
 
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+
 from app.config import get_settings, ensure_directories
 from app.utils.logger import setup_logging, logger
 from app.routers import health_router, chat_router, ingest_router, admin_router, documents_router, metrics_router
+from app.middleware.rate_limit import limiter
 
 
 @asynccontextmanager
@@ -48,7 +52,11 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
         lifespan=lifespan,
     )
-    
+
+    # Configure rate limiter
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
     # Configure CORS
     app.add_middleware(
         CORSMiddleware,
