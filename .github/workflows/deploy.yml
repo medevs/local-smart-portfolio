@@ -62,15 +62,16 @@ jobs:
           git pull origin main
 
           echo "📥 Pulling latest GHCR images..."
-          docker compose -f docker-compose.yml -f docker-compose.homelab.yml pull
+          docker compose -f docker-compose.yml -f docker-compose.homelab.yml --profile observability pull
 
           echo "🔄 Recreating containers with homelab overrides..."
           # The ollama-init service will automatically pull required models
           # (llama3.2:3b for LLM, nomic-embed-text for embeddings)
-          docker compose -f docker-compose.yml -f docker-compose.homelab.yml up -d --force-recreate
+          # --profile observability enables Langfuse tracing services
+          docker compose -f docker-compose.yml -f docker-compose.homelab.yml --profile observability up -d --force-recreate
 
           echo "📋 Checking ollama-init logs..."
-          docker compose -f docker-compose.yml -f docker-compose.homelab.yml logs ollama-init || true
+          docker compose -f docker-compose.yml -f docker-compose.homelab.yml --profile observability logs ollama-init || true
 
           echo "🧹 Cleaning up old images..."
           docker image prune -f
