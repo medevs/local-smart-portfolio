@@ -1,13 +1,14 @@
 """
 Observability service using Langfuse for LLM tracing and monitoring.
 Provides visibility into LLM calls, latencies, token usage, and errors.
+
+Updated for Langfuse SDK v3 API.
 """
 
 import os
 import time
-from typing import Optional, Dict, Any, Generator, AsyncGenerator
+from typing import Optional, Dict, Any
 from functools import wraps
-from contextlib import contextmanager
 from datetime import datetime
 
 from app.utils.logger import logger
@@ -15,17 +16,18 @@ from app.config import get_settings
 
 # Try to import Langfuse, but make it optional
 try:
-    from langfuse import Langfuse
-    from langfuse.decorators import observe, langfuse_context
+    from langfuse import Langfuse, observe, get_client
     LANGFUSE_AVAILABLE = True
 except ImportError:
     LANGFUSE_AVAILABLE = False
+    observe = None
+    get_client = None
     logger.warning("Langfuse not installed. Observability features disabled.")
 
 
 class ObservabilityService:
     """
-    Service for LLM observability and tracing.
+    Service for LLM observability and tracing using Langfuse SDK v3.
     Uses Langfuse when available, falls back to local logging otherwise.
     """
 
@@ -38,8 +40,6 @@ class ObservabilityService:
 
     def _initialize(self):
         """Initialize Langfuse client if configured."""
-        settings = get_settings()
-
         # Check for Langfuse environment variables
         public_key = os.getenv("LANGFUSE_PUBLIC_KEY")
         secret_key = os.getenv("LANGFUSE_SECRET_KEY")
@@ -97,70 +97,6 @@ class ObservabilityService:
             metadata=metadata or {},
         )
 
-    def log_generation(
-        self,
-        trace_id: Optional[str],
-        name: str,
-        input_text: str,
-        output_text: str,
-        model: str,
-        latency_ms: float,
-        tokens_input: Optional[int] = None,
-        tokens_output: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ):
-        """Log a completed LLM generation."""
-        if self.enabled and self.langfuse:
-            try:
-                generation = self.langfuse.generation(
-                    trace_id=trace_id,
-                    name=name,
-                    model=model,
-                    input=input_text,
-                    output=output_text,
-                    usage={
-                        "input": tokens_input,
-                        "output": tokens_output,
-                    } if tokens_input or tokens_output else None,
-                    metadata=metadata,
-                )
-                self.langfuse.flush()
-            except Exception as e:
-                logger.warning(f"Failed to log generation to Langfuse: {e}")
-
-        # Always log locally for debugging
-        logger.debug(
-            f"LLM Generation: {name} | Model: {model} | "
-            f"Latency: {latency_ms:.0f}ms | "
-            f"Tokens: {tokens_input or '?'}/{tokens_output or '?'}"
-        )
-
-    def log_retrieval(
-        self,
-        trace_id: Optional[str],
-        query: str,
-        documents: list,
-        latency_ms: float,
-        metadata: Optional[Dict[str, Any]] = None,
-    ):
-        """Log a RAG retrieval operation."""
-        if self.enabled and self.langfuse:
-            try:
-                self.langfuse.span(
-                    trace_id=trace_id,
-                    name="retrieval",
-                    input={"query": query},
-                    output={"documents": documents, "count": len(documents)},
-                    metadata=metadata,
-                )
-                self.langfuse.flush()
-            except Exception as e:
-                logger.warning(f"Failed to log retrieval to Langfuse: {e}")
-
-        logger.debug(
-            f"RAG Retrieval: {len(documents)} docs | Latency: {latency_ms:.0f}ms"
-        )
-
     def log_error(
         self,
         trace_id: Optional[str],
@@ -174,40 +110,7 @@ class ObservabilityService:
             "context": context or {},
             "timestamp": datetime.utcnow().isoformat(),
         }
-
-        if self.enabled and self.langfuse:
-            try:
-                self.langfuse.event(
-                    trace_id=trace_id,
-                    name="error",
-                    metadata=error_info,
-                )
-                self.langfuse.flush()
-            except Exception as e:
-                logger.warning(f"Failed to log error to Langfuse: {e}")
-
         logger.error(f"LLM Error: {error_info}")
-
-    def log_user_feedback(
-        self,
-        trace_id: str,
-        score: float,
-        comment: Optional[str] = None,
-    ):
-        """Log user feedback for a response."""
-        if self.enabled and self.langfuse:
-            try:
-                self.langfuse.score(
-                    trace_id=trace_id,
-                    name="user_feedback",
-                    value=score,
-                    comment=comment,
-                )
-                self.langfuse.flush()
-            except Exception as e:
-                logger.warning(f"Failed to log feedback to Langfuse: {e}")
-
-        logger.info(f"User Feedback: trace={trace_id}, score={score}")
 
     def flush(self):
         """Flush any pending events to Langfuse."""
@@ -219,7 +122,7 @@ class ObservabilityService:
 
 
 class TraceContext:
-    """Context manager for tracing LLM operations."""
+    """Context manager for tracing LLM operations using Langfuse SDK v3."""
 
     def __init__(
         self,
@@ -239,21 +142,24 @@ class TraceContext:
         self.output_text: str = ""
         self.tokens_input: Optional[int] = None
         self.tokens_output: Optional[int] = None
+        self._span = None
 
     def __enter__(self) -> "TraceContext":
         self.start_time = time.time()
 
         if self.service.enabled and self.service.langfuse:
             try:
-                trace = self.service.langfuse.trace(
+                # Use the new SDK v3 context manager API
+                self._span = self.service.langfuse.start_as_current_span(
                     name=self.name,
-                    input=self.input_text,
+                    input={"message": self.input_text},
                     metadata={
                         "model": self.model,
                         **self.metadata,
                     },
                 )
-                self.trace_id = trace.id
+                self._span.__enter__()
+                self.trace_id = getattr(self._span, 'trace_id', None)
             except Exception as e:
                 logger.warning(f"Failed to create trace: {e}")
 
@@ -262,24 +168,38 @@ class TraceContext:
     def __exit__(self, exc_type, exc_val, exc_tb):
         latency_ms = (time.time() - self.start_time) * 1000
 
-        if exc_type is not None:
-            self.service.log_error(
-                trace_id=self.trace_id,
-                error=exc_val,
-                context={"name": self.name, "model": self.model},
-            )
-        else:
-            self.service.log_generation(
-                trace_id=self.trace_id,
-                name=self.name,
-                input_text=self.input_text,
-                output_text=self.output_text,
-                model=self.model,
-                latency_ms=latency_ms,
-                tokens_input=self.tokens_input,
-                tokens_output=self.tokens_output,
-                metadata=self.metadata,
-            )
+        if self._span:
+            try:
+                if exc_type is not None:
+                    # Log error
+                    self._span.update(
+                        level="ERROR",
+                        status_message=str(exc_val),
+                        metadata={"error_type": type(exc_val).__name__}
+                    )
+                else:
+                    # Log success with output
+                    self._span.update(
+                        output={"response": self.output_text},
+                        metadata={
+                            "latency_ms": latency_ms,
+                            "tokens_input": self.tokens_input,
+                            "tokens_output": self.tokens_output,
+                        }
+                    )
+
+                self._span.__exit__(exc_type, exc_val, exc_tb)
+
+                # Flush to ensure data is sent
+                self.service.flush()
+            except Exception as e:
+                logger.warning(f"Failed to complete trace: {e}")
+
+        # Always log locally for debugging
+        logger.debug(
+            f"LLM Call: {self.name} | Model: {self.model} | "
+            f"Latency: {latency_ms:.0f}ms"
+        )
 
         return False  # Don't suppress exceptions
 
@@ -297,64 +217,3 @@ class TraceContext:
 def get_observability_service() -> ObservabilityService:
     """Get the observability service singleton."""
     return ObservabilityService.get_instance()
-
-
-# Decorator for tracing functions
-def trace_llm(name: str, model: Optional[str] = None):
-    """
-    Decorator to trace LLM operations.
-
-    Usage:
-        @trace_llm("chat_completion")
-        async def generate_response(query: str) -> str:
-            ...
-    """
-    def decorator(func):
-        @wraps(func)
-        async def async_wrapper(*args, **kwargs):
-            obs = get_observability_service()
-            settings = get_settings()
-
-            # Extract input from args/kwargs
-            input_text = str(kwargs.get("query") or kwargs.get("question") or args[0] if args else "")
-            model_name = model or settings.ollama_model
-
-            with obs.trace_llm_call(
-                name=name,
-                input_text=input_text,
-                model=model_name,
-            ) as ctx:
-                result = await func(*args, **kwargs)
-                if isinstance(result, str):
-                    ctx.set_output(result)
-                elif isinstance(result, dict):
-                    ctx.set_output(str(result.get("response", result)))
-                return result
-
-        @wraps(func)
-        def sync_wrapper(*args, **kwargs):
-            obs = get_observability_service()
-            settings = get_settings()
-
-            input_text = str(kwargs.get("query") or kwargs.get("question") or args[0] if args else "")
-            model_name = model or settings.ollama_model
-
-            with obs.trace_llm_call(
-                name=name,
-                input_text=input_text,
-                model=model_name,
-            ) as ctx:
-                result = func(*args, **kwargs)
-                if isinstance(result, str):
-                    ctx.set_output(result)
-                elif isinstance(result, dict):
-                    ctx.set_output(str(result.get("response", result)))
-                return result
-
-        # Return appropriate wrapper based on function type
-        import asyncio
-        if asyncio.iscoroutinefunction(func):
-            return async_wrapper
-        return sync_wrapper
-
-    return decorator

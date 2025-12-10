@@ -9,8 +9,10 @@ import json
 from typing import Optional
 from app.models.chat import ChatRequest, ChatResponse
 from app.services.rag import get_rag_service
+from app.services.observability import get_observability_service
 from app.utils.logger import logger
 from app.middleware.rate_limit import limiter, get_chat_limit, get_chat_stream_limit
+from app.config import get_settings
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
@@ -31,6 +33,8 @@ async def chat(request: Request, chat_request: ChatRequest) -> ChatResponse:
         ChatResponse with AI response and sources
     """
     logger.info(f"Chat request: {chat_request.message[:100]}...")
+    settings = get_settings()
+    obs = get_observability_service()
 
     try:
         rag = get_rag_service()
@@ -43,10 +47,18 @@ async def chat(request: Request, chat_request: ChatRequest) -> ChatResponse:
                 for msg in chat_request.history
             ]
 
-        result = await rag.query(
-            question=chat_request.message,
-            history=history
-        )
+        # Trace the LLM call with Langfuse
+        with obs.trace_llm_call(
+            name="chat",
+            input_text=chat_request.message,
+            model=settings.ollama_model,
+            metadata={"endpoint": "/chat", "has_history": bool(history)}
+        ) as ctx:
+            result = await rag.query(
+                question=chat_request.message,
+                history=history
+            )
+            ctx.set_output(result["response"])
 
         logger.info(f"Chat response generated, sources: {result.get('sources', [])}")
 
@@ -54,9 +66,10 @@ async def chat(request: Request, chat_request: ChatRequest) -> ChatResponse:
             response=result["response"],
             sources=result.get("sources", [])
         )
-        
+
     except Exception as e:
         logger.error(f"Chat error: {e}")
+        obs.log_error(trace_id=None, error=e, context={"endpoint": "/chat"})
         raise HTTPException(
             status_code=500,
             detail="Failed to generate response"
@@ -78,8 +91,11 @@ async def chat_stream(request: Request, chat_request: ChatRequest):
         StreamingResponse with SSE events
     """
     logger.info(f"Streaming chat request: {chat_request.message[:100]}...")
+    settings = get_settings()
+    obs = get_observability_service()
 
     async def generate():
+        full_response = []
         try:
             rag = get_rag_service()
 
@@ -91,22 +107,37 @@ async def chat_stream(request: Request, chat_request: ChatRequest):
                     for msg in chat_request.history
                 ]
 
-            async for chunk_data in rag.query_stream(
-                question=chat_request.message,
-                history=history
-            ):
-                # Format as SSE event
-                event_data = json.dumps(chunk_data)
-                yield f"data: {event_data}\n\n"
-            
+            # Start trace for streaming
+            with obs.trace_llm_call(
+                name="chat_stream",
+                input_text=chat_request.message,
+                model=settings.ollama_model,
+                metadata={"endpoint": "/chat/stream", "has_history": bool(history)}
+            ) as ctx:
+                async for chunk_data in rag.query_stream(
+                    question=chat_request.message,
+                    history=history
+                ):
+                    # Collect response for tracing
+                    if chunk_data.get("chunk"):
+                        full_response.append(chunk_data["chunk"])
+
+                    # Format as SSE event
+                    event_data = json.dumps(chunk_data)
+                    yield f"data: {event_data}\n\n"
+
+                # Set full response for trace
+                ctx.set_output("".join(full_response))
+
             # Send done event
             yield "data: [DONE]\n\n"
-            
+
         except Exception as e:
             logger.error(f"Streaming error: {e}")
+            obs.log_error(trace_id=None, error=e, context={"endpoint": "/chat/stream"})
             error_data = json.dumps({"error": str(e)})
             yield f"data: {error_data}\n\n"
-    
+
     return StreamingResponse(
         generate(),
         media_type="text/event-stream",
