@@ -502,6 +502,96 @@ X-Admin-Key: <your-api-key>
 
 ---
 
+## 🔬 Testing
+
+### Backend Tests (pytest)
+
+```bash
+cd backend
+
+# Install test dependencies
+pip install pytest pytest-asyncio pytest-cov httpx
+
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=app --cov-report=html
+
+# Run specific test file
+pytest tests/test_chat.py -v
+```
+
+### Frontend Tests (Vitest)
+
+```bash
+cd frontend
+
+# Run all tests
+pnpm test
+
+# Run with UI
+pnpm test:ui
+
+# Run with coverage
+pnpm test:coverage
+
+# Watch mode
+pnpm test:watch
+```
+
+---
+
+## 📊 Observability (Langfuse)
+
+The portfolio includes optional LLM observability with Langfuse for tracing and monitoring.
+
+### Enable Langfuse
+
+```bash
+# Start with Langfuse observability
+docker compose --profile observability up -d
+```
+
+### Configuration
+
+Add to `backend/.env`:
+
+```env
+LANGFUSE_PUBLIC_KEY=pk-lf-xxx
+LANGFUSE_SECRET_KEY=sk-lf-xxx
+LANGFUSE_HOST=http://langfuse:3000
+```
+
+### Access Langfuse UI
+
+- **Local**: http://localhost:3001
+- **Homelab**: http://your-homelab-ip:3001
+
+### What's Tracked
+
+- LLM call inputs/outputs
+- Response latency
+- Token usage
+- Error rates
+
+---
+
+## 🛡️ Rate Limiting
+
+API endpoints are protected with rate limiting:
+
+| Endpoint | Development | Production |
+|----------|-------------|------------|
+| `/chat` | 60/minute | 20/minute |
+| `/chat/stream` | 30/minute | 10/minute |
+| `/ingest` | 20/minute | 5/minute |
+| `/admin/*` | 100/minute | 30/minute |
+
+When rate limited, you'll receive HTTP 429 (Too Many Requests).
+
+---
+
 ## 🔒 Security Notes
 
 1. **API Key**: Always use a strong, randomly generated API key
@@ -509,6 +599,8 @@ X-Admin-Key: <your-api-key>
 3. **CORS**: Configure `CORS_ORIGINS` properly for production
 4. **Reverse Proxy**: Use HTTPS in production with a reverse proxy
 5. **Firewall**: Restrict access to admin endpoints
+6. **Rate Limiting**: Enabled by default to protect LLM endpoints
+7. **Input Guardrails**: Prompt injection detection protects chat endpoints
 
 ---
 
