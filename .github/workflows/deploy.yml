@@ -61,7 +61,21 @@ jobs:
           echo "📦 Pulling latest code from GitHub..."
           git pull origin main
 
-          echo "📥 Pulling latest GHCR images..."
+          echo "� Updating environment variables for Langfuse..."
+          LF_HOST="${{ secrets.LANGFUSE_HOST }}"
+          if [ -z "$LF_HOST" ]; then LF_HOST="http://langfuse:3000"; fi
+          touch .env
+          sed -i '/^LANGFUSE_/d' .env
+          printf "LANGFUSE_ENABLED=true\n" >> .env
+          printf "LANGFUSE_PUBLIC_KEY=%s\n" "${{ secrets.LANGFUSE_PUBLIC_KEY }}" >> .env
+          printf "LANGFUSE_SECRET_KEY=%s\n" "${{ secrets.LANGFUSE_SECRET_KEY }}" >> .env
+          printf "LANGFUSE_HOST=%s\n" "$LF_HOST" >> .env
+          if [ -n "${{ secrets.LANGFUSE_NEXTAUTH_SECRET }}" ]; then printf "LANGFUSE_NEXTAUTH_SECRET=%s\n" "${{ secrets.LANGFUSE_NEXTAUTH_SECRET }}" >> .env; fi
+          if [ -n "${{ secrets.LANGFUSE_SALT }}" ]; then printf "LANGFUSE_SALT=%s\n" "${{ secrets.LANGFUSE_SALT }}" >> .env; fi
+          if [ -n "${{ secrets.LANGFUSE_ENCRYPTION_KEY }}" ]; then printf "LANGFUSE_ENCRYPTION_KEY=%s\n" "${{ secrets.LANGFUSE_ENCRYPTION_KEY }}" >> .env; fi
+          if [ -n "${{ secrets.LANGFUSE_NEXTAUTH_URL }}" ]; then printf "LANGFUSE_NEXTAUTH_URL=%s\n" "${{ secrets.LANGFUSE_NEXTAUTH_URL }}" >> .env; fi
+
+          echo "�📥 Pulling latest GHCR images..."
           docker compose -f docker-compose.yml -f docker-compose.homelab.yml --profile observability pull
 
           echo "🔄 Recreating containers with homelab overrides..."
