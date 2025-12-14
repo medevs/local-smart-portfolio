@@ -1,14 +1,22 @@
 # =============================================================================
-# Backend Dockerfile - FastAPI Application
+# Backend Dockerfile - FastAPI Application (Two-Image Strategy)
 # =============================================================================
-# Two-stage build with Docling support (optional via USE_DOCLING build arg)
-# Set USE_DOCLING=false to skip Docling install (saves ~2GB disk, uses PyPDF fallback)
+# Supports two build modes:
+# 1. Full build: FROM python:3.11-slim-bookworm (CI base + local dev)
+# 2. Extension build: FROM ghcr.io/.../backend:base (homelab with Docling)
+#
+# CI builds base image (no Docling) -> pushes to GHCR
+# Homelab builds FROM base + adds Docling layer
 # =============================================================================
+
+# Base image ARG - allows building FROM a pre-built base image
+ARG BASE_IMAGE=python:3.11-slim-bookworm
 
 FROM python:3.11-slim-bookworm AS builder
 
-# Build arg to control Docling installation (default: false for smaller images)
-ARG USE_DOCLING=false
+# Build arg to control Docling installation (default: true for local builds)
+# Set USE_DOCLING=false in CI to save disk space
+ARG USE_DOCLING=true
 
 WORKDIR /app
 
@@ -23,10 +31,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 
 # =============================================================================
-# Layer 1: Core dependencies (fast, ~2 min)
+# Layer 1: Core dependencies
+# No cache mounts - prevents disk space issues on CI runners
 # =============================================================================
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --user --prefer-binary \
+RUN pip install --user --no-cache-dir --prefer-binary \
     fastapi==0.115.0 \
     uvicorn[standard]==0.32.0 \
     sqlalchemy>=2.0.0 \
@@ -57,39 +65,43 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # =============================================================================
 # Layer 2: Docling dependencies (optional, ~8-10 min, ~2GB disk)
 # Only installed if USE_DOCLING=true
+# No cache - HuggingFace models downloaded at runtime, not build time
 # =============================================================================
-RUN --mount=type=cache,target=/root/.cache/pip \
-    --mount=type=cache,target=/root/.cache/huggingface \
-    if [ "$USE_DOCLING" = "true" ]; then \
-        pip install --user --prefer-binary \
+RUN if [ "$USE_DOCLING" = "true" ]; then \
+        pip install --user --no-cache-dir --prefer-binary \
         transformers>=4.47.0 \
         docling>=2.14.0 \
-        docling-core>=2.4.0; \
+        docling-core>=2.4.0 && \
+        pip uninstall -y opencv-python 2>/dev/null || true && \
+        pip install --user --no-cache-dir opencv-python-headless; \
     else \
         echo "Skipping Docling install (USE_DOCLING=$USE_DOCLING)"; \
     fi
 
 # =============================================================================
-# Production stage
+# Production stage - uses BASE_IMAGE (python:slim for CI, or ghcr backend:base for homelab)
 # =============================================================================
-FROM python:3.11-slim-bookworm
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
 
-# Re-declare build arg for production stage
-ARG USE_DOCLING=false
+# Re-declare build args for production stage
+ARG USE_DOCLING=true
 
 WORKDIR /app
 
-# Install runtime dependencies (curl for health check, tesseract only if Docling enabled)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    && if [ "$USE_DOCLING" = "true" ]; then \
-        apt-get install -y --no-install-recommends \
+# Install runtime dependencies
+# - Skip if building FROM base image (already has curl installed)
+# - Add tesseract only if Docling enabled
+RUN if [ ! -f /app/.base-marker ]; then \
+        apt-get update && apt-get install -y --no-install-recommends curl && \
+        rm -rf /var/lib/apt/lists/*; \
+    fi && \
+    if [ "$USE_DOCLING" = "true" ]; then \
+        apt-get update && apt-get install -y --no-install-recommends \
         tesseract-ocr \
-        tesseract-ocr-eng \
-        libgl1 \
-        libglib2.0-0; \
-    fi \
-    && rm -rf /var/lib/apt/lists/*
+        tesseract-ocr-eng && \
+        rm -rf /var/lib/apt/lists/*; \
+    fi
 
 # Copy Python dependencies from builder
 COPY --from=builder /root/.local /root/.local
@@ -111,6 +123,9 @@ COPY alembic/ ./alembic/
 # Create directories for data persistence
 RUN mkdir -p /app/data/chroma_db /app/data/documents /app/logs /app/data/huggingface \
     && chmod -R 755 /app/data /app/logs
+
+# Mark as base image (used to detect if we're extending from base)
+RUN touch /app/.base-marker
 
 EXPOSE 8000
 

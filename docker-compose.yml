@@ -13,9 +13,9 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       args:
-        # Set USE_DOCLING=true for advanced PDF processing with Docling
+        # Set USE_DOCLING=true for advanced PDF processing with Docling (default)
         # Set USE_DOCLING=false for faster builds (uses PyPDF fallback)
-        - USE_DOCLING=${USE_DOCLING:-false}
+        - USE_DOCLING=${USE_DOCLING:-true}
     container_name: portfolio-backend
     restart: unless-stopped
     ports:
@@ -256,7 +256,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       args:
-        - USE_DOCLING=${USE_DOCLING:-false}
+        - USE_DOCLING=${USE_DOCLING:-true}
     container_name: portfolio-worker
     command: celery -A app.tasks.celery_app worker --loglevel=info
     environment:
