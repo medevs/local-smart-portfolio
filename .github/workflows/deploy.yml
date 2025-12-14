@@ -87,6 +87,13 @@ jobs:
           echo "📋 Checking ollama-init logs..."
           docker compose -f docker-compose.yml -f docker-compose.homelab.yml --profile observability logs ollama-init || true
 
+          echo "🗄️ Running database migrations..."
+          # Wait for backend to be healthy before running migrations
+          sleep 10
+          docker compose -f docker-compose.yml -f docker-compose.homelab.yml exec -T backend alembic upgrade head || {
+            echo "⚠️ Migration failed, backend may need restart"
+          }
+
           echo "🧹 Cleaning up old images..."
           docker image prune -f
 

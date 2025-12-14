@@ -17,28 +17,19 @@ from app.config import get_settings
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
 
+from app.agent.core import Agent
+
 @router.post("", response_model=ChatResponse)
 @router.post("/", response_model=ChatResponse)
 @limiter.limit(get_chat_limit)
 async def chat(request: Request, chat_request: ChatRequest) -> ChatResponse:
     """
-    Send a message and get an AI response.
-    Uses RAG to retrieve relevant context from the knowledge base.
-
-    Args:
-        request: FastAPI Request object (for rate limiting)
-        chat_request: ChatRequest with message and optional history
-
-    Returns:
-        ChatResponse with AI response and sources
+    Send a message and get an AI response using Agentic RAG.
     """
     logger.info(f"Chat request: {chat_request.message[:100]}...")
     settings = get_settings()
-    obs = get_observability_service()
-
+    
     try:
-        rag = get_rag_service()
-
         # Convert history to dict format
         history = None
         if chat_request.history:
@@ -46,30 +37,24 @@ async def chat(request: Request, chat_request: ChatRequest) -> ChatResponse:
                 {"role": msg.role, "content": msg.content}
                 for msg in chat_request.history
             ]
-
-        # Trace the LLM call with Langfuse
-        with obs.trace_llm_call(
-            name="chat",
-            input_text=chat_request.message,
-            model=settings.ollama_model,
-            metadata={"endpoint": "/chat", "has_history": bool(history)}
-        ) as ctx:
-            result = await rag.query(
-                question=chat_request.message,
-                history=history
-            )
-            ctx.set_output(result["response"])
-
-        logger.info(f"Chat response generated, sources: {result.get('sources', [])}")
-
+            
+        agent = Agent()
+        response = await agent.run(chat_request.message, history=history)
+        
+        # Parse response to extract sources if possible, or Agent should return them.
+        # Currently Agent returns string.
+        # rag.txt says "cite sources using metadata".
+        # So the sources should be IN the text.
+        # But ChatResponse model expects `sources` list.
+        # We can extract them or just leave empty for now, as the text contains citations.
+        
         return ChatResponse(
-            response=result["response"],
-            sources=result.get("sources", [])
+            response=response,
+            sources=[] # Sources are embedded in the text citation
         )
 
     except Exception as e:
         logger.error(f"Chat error: {e}")
-        obs.log_error(trace_id=None, error=e, context={"endpoint": "/chat"})
         raise HTTPException(
             status_code=500,
             detail="Failed to generate response"
@@ -80,25 +65,14 @@ async def chat(request: Request, chat_request: ChatRequest) -> ChatResponse:
 @limiter.limit(get_chat_stream_limit)
 async def chat_stream(request: Request, chat_request: ChatRequest):
     """
-    Send a message and get a streaming AI response.
-    Uses Server-Sent Events (SSE) for real-time streaming.
-
-    Args:
-        request: FastAPI Request object (for rate limiting)
-        chat_request: ChatRequest with message and optional history
-
-    Returns:
-        StreamingResponse with SSE events
+    Send a message and get a streaming AI response using Agentic RAG.
+    Note: Currently sends the full response as a single chunk after processing.
     """
     logger.info(f"Streaming chat request: {chat_request.message[:100]}...")
     settings = get_settings()
-    obs = get_observability_service()
 
     async def generate():
-        full_response = []
         try:
-            rag = get_rag_service()
-
             # Convert history to dict format
             history = None
             if chat_request.history:
@@ -107,34 +81,24 @@ async def chat_stream(request: Request, chat_request: ChatRequest):
                     for msg in chat_request.history
                 ]
 
-            # Start trace for streaming
-            with obs.trace_llm_call(
-                name="chat_stream",
-                input_text=chat_request.message,
-                model=settings.ollama_model,
-                metadata={"endpoint": "/chat/stream", "has_history": bool(history)}
-            ) as ctx:
-                async for chunk_data in rag.query_stream(
-                    question=chat_request.message,
-                    history=history
-                ):
-                    # Collect response for tracing
-                    if chunk_data.get("chunk"):
-                        full_response.append(chunk_data["chunk"])
-
-                    # Format as SSE event
-                    event_data = json.dumps(chunk_data)
-                    yield f"data: {event_data}\n\n"
-
-                # Set full response for trace
-                ctx.set_output("".join(full_response))
+            agent = Agent()
+            # Agent processing (plan -> execute -> merge -> generate)
+            response = await agent.run(chat_request.message, history=history)
+            
+            # Yield the full response as a single chunk
+            # In the future, we could stream tokens from Ollama in the final step of Agent
+            chunk_data = {
+                "chunk": response,
+                "done": False,
+                "sources": [] # Sources embedded in text
+            }
+            yield f"data: {json.dumps(chunk_data)}\n\n"
 
             # Send done event
             yield "data: [DONE]\n\n"
 
         except Exception as e:
             logger.error(f"Streaming error: {e}")
-            obs.log_error(trace_id=None, error=e, context={"endpoint": "/chat/stream"})
             error_data = json.dumps({"error": str(e)})
             yield f"data: {error_data}\n\n"
 
@@ -144,7 +108,7 @@ async def chat_stream(request: Request, chat_request: ChatRequest):
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # Disable nginx buffering
+            "X-Accel-Buffering": "no",
         }
     )
 

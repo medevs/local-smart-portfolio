@@ -41,6 +41,7 @@ services:
       - UPLOAD_DIR=/app/data/documents
       - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-10}
       - ALLOWED_EXTENSIONS=${ALLOWED_EXTENSIONS:-.pdf,.md,.txt,.docx}
+      - USE_DOCLING=${USE_DOCLING:-true}
 
       # RAG Settings
       - CHUNK_SIZE=${CHUNK_SIZE:-500}
@@ -58,6 +59,14 @@ services:
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
       - LANGFUSE_HOST=${LANGFUSE_HOST:-http://langfuse:3000}
       - LANGFUSE_ENABLED=${LANGFUSE_ENABLED:-false}
+
+      # Database
+      - DATABASE_URL=postgresql+asyncpg://portfolio:portfolio_secret@postgres:5432/portfolio
+      
+      # Celery
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+
     volumes:
       # Persist ChromaDB data
       - chroma_data:/app/data/chroma_db
@@ -70,6 +79,10 @@ services:
     depends_on:
       ollama-init:
         condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -85,6 +98,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
+        # Client-side API URL (browser -> backend)
         - NEXT_PUBLIC_API_URL=http://localhost:8000
     container_name: portfolio-frontend
     restart: unless-stopped
@@ -93,6 +107,9 @@ services:
     environment:
       # Admin API Key (for frontend admin operations)
       - NEXT_PUBLIC_ADMIN_API_KEY=${ADMIN_API_KEY}
+      # Server-side API URL (container -> backend container)
+      # This is used for server-side rendering/fetching
+      - INTERNAL_API_URL=http://backend:8000
     networks:
       - portfolio-network
     depends_on:
@@ -188,6 +205,89 @@ services:
 
         echo "=== All models ready! ==="
     restart: "no"
+
+  # ===========================================================================
+  # PostgreSQL Database (App Data)
+  # ===========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: portfolio-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: portfolio
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-portfolio_secret}
+      POSTGRES_DB: portfolio
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - portfolio-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portfolio"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================================================
+  # Redis (Cache & Celery Broker)
+  # ===========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: portfolio-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - portfolio-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================================================
+  # Celery Worker (Async Tasks)
+  # ===========================================================================
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: portfolio-worker
+    command: celery -A app.tasks.celery_app worker --loglevel=info
+    environment:
+      - APP_NAME=${APP_NAME:-AI Portfolio Worker}
+      - DATABASE_URL=postgresql+asyncpg://portfolio:portfolio_secret@postgres:5432/portfolio
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
+      - CHROMA_PERSIST_DIR=/app/data/chroma_db
+      - CHROMA_COLLECTION_NAME=${CHROMA_COLLECTION_NAME:-portfolio_docs}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nomic-embed-text}
+      - UPLOAD_DIR=/app/data/documents
+      - USE_DOCLING=${USE_DOCLING:-true}
+    depends_on:
+      - redis
+      - postgres
+      - ollama
+    volumes:
+      - chroma_data:/app/data/chroma_db
+      - documents_data:/app/data/documents
+      - backend_logs:/app/logs
+    networks:
+      - portfolio-network
+
+  # ===========================================================================
+  # Flower (Celery Monitoring) - OPTIONAL
+  # ===========================================================================
+  flower:
+    image: mher/flower:2.0
+    container_name: portfolio-flower
+    command: celery --broker=redis://redis:6379/0 flower --port=5555
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+    networks:
+      - portfolio-network
 
   # ===========================================================================
   # Langfuse Web Service (LLM Observability) - OPTIONAL
@@ -401,6 +501,10 @@ volumes:
   backend_logs:
     driver: local
   ollama_data:
+    driver: local
+  postgres_data:
+    driver: local
+  redis_data:
     driver: local
   langfuse_postgres_data:
     driver: local

@@ -6,11 +6,14 @@ Protected by admin API key authentication.
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from app.models.document import DocumentUploadResponse, DocumentMetadata
-from app.services.rag import get_rag_service
+from app.services.ingestion.orchestrator import IngestionOrchestrator
 from app.config import get_settings
 from app.utils.logger import logger
 from app.utils.auth import verify_admin_key
 from datetime import datetime
+import os
+import shutil
+import tempfile
 
 router = APIRouter(prefix="/ingest", tags=["Ingestion"])
 
@@ -19,72 +22,56 @@ router = APIRouter(prefix="/ingest", tags=["Ingestion"])
 @router.post("/", response_model=DocumentUploadResponse)
 async def ingest_document(
     file: UploadFile = File(..., description="Document file to ingest"),
-    _: bool = Depends(verify_admin_key)
+    _: bool = Depends(verify_admin_key),
 ) -> DocumentUploadResponse:
     """
-    Upload and ingest a document into the knowledge base.
-    
-    Supported file types: .pdf, .md, .txt, .docx
-    
-    The document will be:
-    1. Validated for type and size
-    2. Saved to disk
-    3. Text extracted
-    4. Split into chunks
-    5. Embedded and stored in vector database
-    
-    Args:
-        file: The uploaded file
-        
-    Returns:
-        DocumentUploadResponse with document metadata
+    Upload and ingest a document using the Agentic RAG pipeline (Docling + Postgres + Chroma).
     """
     settings = get_settings()
-    
+
     # Validate file
     if not file.filename:
         raise HTTPException(status_code=400, detail="No filename provided")
-    
-    # Read file content
-    content = await file.read()
-    
-    if len(content) > settings.max_file_size_bytes:
-        raise HTTPException(
-            status_code=413,
-            detail=f"File too large. Maximum size: {settings.max_file_size_mb}MB"
-        )
-    
-    logger.info(f"Ingesting document: {file.filename} ({len(content)} bytes)")
-    
+
+    # Save to temp file because Docling needs a path
+    tmp_path = None
     try:
-        rag = get_rag_service()
-        result = await rag.ingest_document(file.filename, content)
-        
-        if not result.get("success"):
-            return DocumentUploadResponse(
-                success=False,
-                message=result.get("error", "Unknown error during ingestion"),
-                document=None
-            )
-        
-        # Create document metadata
+        suffix = os.path.splitext(file.filename)[1]
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            shutil.copyfileobj(file.file, tmp)
+            tmp_path = tmp.name
+
+        logger.info(f"Ingesting document: {file.filename} via Docling")
+
+        # Orchestrate ingestion (manages its own db session)
+        # Pass original filename to preserve it in metadata
+        orchestrator = IngestionOrchestrator()
+        result = await orchestrator.ingest_file(tmp_path, original_filename=file.filename)
+
+        # Cleanup temp file
+        os.unlink(tmp_path)
+
+        # Create response
         document = DocumentMetadata(
             id=result["document_id"],
-            filename=result["filename"],
-            file_type=result["file_type"],
-            file_size=result["file_size"],
-            chunk_count=result["chunk_count"],
-            uploaded_at=datetime.now()
+            filename=file.filename,
+            file_type=suffix,
+            file_size=0,
+            chunk_count=result["chunks"],
+            uploaded_at=datetime.utcnow()
         )
-        
+
         return DocumentUploadResponse(
             success=True,
-            message=f"Document '{file.filename}' ingested successfully with {result['chunk_count']} chunks",
+            message=f"Document '{file.filename}' ingested successfully with {result['chunks']} chunks",
             document=document
         )
-        
+
     except Exception as e:
         logger.error(f"Ingestion error: {e}")
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
         raise HTTPException(
             status_code=500,
             detail=f"Failed to ingest document: {str(e)}"
@@ -94,30 +81,31 @@ async def ingest_document(
 @router.post("/batch")
 async def ingest_batch(
     files: list[UploadFile] = File(..., description="Multiple document files"),
-    _: bool = Depends(verify_admin_key)
+    _: bool = Depends(verify_admin_key),
 ):
     """
-    Upload and ingest multiple documents at once.
-    
-    Args:
-        files: List of uploaded files
-        
-    Returns:
-        Results for each file
+    Upload and ingest multiple documents at once using Agentic RAG pipeline.
     """
     results = []
-    
+    orchestrator = IngestionOrchestrator()
+
     for file in files:
+        tmp_path = None
         try:
-            content = await file.read()
-            rag = get_rag_service()
-            result = await rag.ingest_document(file.filename or "unknown", content)
+            suffix = os.path.splitext(file.filename)[1] if file.filename else ""
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                shutil.copyfileobj(file.file, tmp)
+                tmp_path = tmp.name
+
+            result = await orchestrator.ingest_file(tmp_path, original_filename=file.filename)
+
             results.append({
                 "filename": file.filename,
-                "success": result.get("success", False),
-                "message": result.get("error") if not result.get("success") else "Ingested successfully",
-                "chunk_count": result.get("chunk_count", 0)
+                "success": True,
+                "message": "Ingested successfully",
+                "chunk_count": result["chunks"]
             })
+
         except Exception as e:
             results.append({
                 "filename": file.filename,
@@ -125,9 +113,12 @@ async def ingest_batch(
                 "message": str(e),
                 "chunk_count": 0
             })
-    
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
     successful = sum(1 for r in results if r["success"])
-    
+
     return {
         "total": len(files),
         "successful": successful,

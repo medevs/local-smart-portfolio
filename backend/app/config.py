@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     chunk_size: int = Field(default=500)
     chunk_overlap: int = Field(default=50)
     top_k_results: int = Field(default=3)
+
+    # Document Processing Settings
+    use_docling: bool = Field(
+        default=False,
+        description="Use Docling for advanced document processing (slower but better quality)"
+    )
     
     # Embedding Model (Ollama embedding model)
     embedding_model: str = Field(default="nomic-embed-text")

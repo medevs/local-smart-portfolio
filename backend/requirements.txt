@@ -4,19 +4,29 @@ uvicorn[standard]==0.32.0
 python-multipart==0.0.12
 python-dotenv==1.0.1
 
+# Database
+sqlalchemy>=2.0.0
+asyncpg>=0.29.0
+alembic>=1.13.0
+psycopg2-binary>=2.9.9
+
+# Async Jobs
+celery>=5.3.0
+redis>=5.0.0
+
 # RAG & Vector Database
 chromadb>=0.5.0
 langchain>=0.3.0
 langchain-community>=0.3.0
 langchain-text-splitters>=0.3.0
 
-# Advanced RAG - Hybrid Search
+# Advanced RAG
 rank-bm25>=0.2.2
 
 # HTTP Client (for Ollama)
 httpx>=0.27.0
 
-# Document Processing
+# Document Processing (Primary - fast)
 pypdf>=5.0.0
 python-docx>=1.1.0
 markdown>=3.6
@@ -35,14 +45,19 @@ psutil>=5.9.0
 # Rate Limiting
 slowapi>=0.1.9
 
-# Observability (optional - install for Langfuse tracing)
+# Observability (optional)
 langfuse>=2.0.0
 
-# Testing
-pytest>=8.0.0
-pytest-asyncio>=0.23.0
-pytest-cov>=4.1.0
-httpx>=0.27.0
+# =============================================================================
+# Docling (included in Docker, enabled via USE_DOCLING=true env var)
+# Provides advanced document parsing with HybridChunker
+# First Docker build takes ~10-15 min, subsequent builds use cache
+# =============================================================================
+docling>=2.14.0
+docling-core>=2.4.0
+transformers>=4.47.0
 
-# Development
-watchfiles>=0.24.0
+# Testing (not in Docker)
+# pytest>=8.0.0
+# pytest-asyncio>=0.23.0
+# pytest-cov>=4.1.0
