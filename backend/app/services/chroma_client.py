@@ -111,6 +111,11 @@ class ChromaService:
     ) -> List[str]:
         """
         Add documents to the collection.
+        Validates metadata against rag.txt requirements:
+        - chunk_id
+        - document_id
+        - source
+        - position
         
         Args:
             texts: List of text content
@@ -123,10 +128,18 @@ class ChromaService:
         if not texts:
             logger.warning("No texts provided to add")
             return []
+            
+        # Validate metadata fields
+        required_fields = {"chunk_id", "document_id", "source", "position"}
+        for idx, meta in enumerate(metadatas):
+            missing = required_fields - meta.keys()
+            if missing:
+                logger.error(f"Metadata at index {idx} missing required fields: {missing}")
+                raise ValueError(f"Metadata missing required fields: {missing}")
         
         # Generate IDs if not provided
         if ids is None:
-            ids = [f"chunk_{uuid.uuid4().hex[:12]}" for _ in texts]
+            ids = [meta.get("chunk_id", f"chunk_{uuid.uuid4().hex[:12]}") for meta in metadatas]
         
         # Generate embeddings
         embeddings = self.embedding_service.embed_texts(texts)
@@ -150,48 +163,54 @@ class ChromaService:
     
     def query(
         self,
-        query_text: str,
+        query_text: Optional[str] = None,
+        query_texts: Optional[List[str]] = None,
         n_results: int = 3,
-        where: Optional[Dict[str, Any]] = None
+        where: Optional[Dict[str, Any]] = None,
+        include: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
         Query the collection for similar documents.
         
         Args:
-            query_text: Text to search for
+            query_text: Single text to search for (legacy support)
+            query_texts: List of texts to search for (preferred)
             n_results: Number of results to return
             where: Optional filter conditions
+            include: Optional list of fields to include
             
         Returns:
             Dict with documents, metadatas, and distances
         """
-        if not query_text or not query_text.strip():
-            return {"documents": [], "metadatas": [], "distances": []}
+        # Support both query_text and query_texts
+        texts = query_texts if query_texts else ([query_text] if query_text else [])
         
-        # Generate query embedding
-        query_embedding = self.embedding_service.embed_text(query_text)
+        if not texts or all(not t or not t.strip() for t in texts):
+            return {"documents": [], "metadatas": [], "distances": [], "ids": []}
         
-        if not query_embedding:
-            logger.error("Failed to generate query embedding")
-            return {"documents": [], "metadatas": [], "distances": []}
+        # Generate query embeddings
+        query_embeddings = self.embedding_service.embed_texts(texts)
+        
+        if not query_embeddings:
+            logger.error("Failed to generate query embeddings")
+            return {"documents": [], "metadatas": [], "distances": [], "ids": []}
+        
+        default_include = ["documents", "metadatas", "distances"]
         
         try:
             results = self.collection.query(
-                query_embeddings=[query_embedding],
+                query_embeddings=query_embeddings,
                 n_results=n_results,
                 where=where,
-                include=["documents", "metadatas", "distances"]
+                include=include if include else default_include
             )
             
-            # Flatten results (query returns nested lists)
-            return {
-                "documents": results.get("documents", [[]])[0],
-                "metadatas": results.get("metadatas", [[]])[0],
-                "distances": results.get("distances", [[]])[0],
-            }
+            # Return raw results structure which contains lists of lists
+            # The caller handles flattening if needed
+            return results
         except Exception as e:
             logger.error(f"Error querying ChromaDB: {e}")
-            return {"documents": [], "metadatas": [], "distances": []}
+            return {"documents": [], "metadatas": [], "distances": [], "ids": []}
     
     def delete_by_document_id(self, document_id: str) -> bool:
         """
@@ -240,9 +259,12 @@ class ChromaService:
             for metadata in results["metadatas"]:
                 doc_id = metadata.get("document_id")
                 if doc_id and doc_id not in documents:
+                    # Use 'source' field (set during ingestion) as filename
+                    source = metadata.get("source", "Unknown")
                     documents[doc_id] = {
                         "id": doc_id,
-                        "filename": metadata.get("filename", "Unknown"),
+                        "filename": source,
+                        "source": source,
                         "file_type": metadata.get("file_type", "Unknown"),
                         "file_size": metadata.get("file_size", 0),
                         "chunk_count": 0,
@@ -300,3 +322,6 @@ def get_chroma_service() -> ChromaService:
         _chroma_service = ChromaService()
     return _chroma_service
 
+def get_chroma_client() -> ChromaService:
+    """Legacy alias for get_chroma_service."""
+    return get_chroma_service()

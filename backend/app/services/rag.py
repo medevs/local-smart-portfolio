@@ -274,8 +274,13 @@ class RAGService:
 
         if db_deleted or file_deleted:
             # Refresh hybrid search index for advanced RAG
+            # Wrap in try-except to prevent 500 error if refresh fails
+            # (deletion already succeeded at this point)
             if self.use_advanced_rag and self.advanced_rag:
-                self.advanced_rag.refresh_index()
+                try:
+                    self.advanced_rag.refresh_index()
+                except Exception as e:
+                    logger.warning(f"Failed to refresh index after deletion: {e}")
 
             return {
                 "success": True,

@@ -5,6 +5,7 @@ from .chroma_client import ChromaService, get_chroma_service
 from .embeddings import EmbeddingService, get_embedding_service
 from .document_loader import DocumentLoader, get_document_loader
 from .rag import RAGService, get_rag_service
+from .reranker import Reranker, get_reranker
 
 __all__ = [
     "OllamaClient",
@@ -17,5 +18,7 @@ __all__ = [
     "get_document_loader",
     "RAGService",
     "get_rag_service",
+    "Reranker",
+    "get_reranker",
 ]
 
