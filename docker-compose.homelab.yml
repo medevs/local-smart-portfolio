@@ -1,21 +1,38 @@
 # =============================================================================
-# Docker Compose - Homelab Override
+# Docker Compose - Homelab Override (Two-Image Strategy)
 # =============================================================================
-# This file is for homelab/CI-CD deployments using GHCR images
-# Regular users should use docker-compose.yml directly
+# This file is for homelab/CI-CD deployments
+# - Frontend: pulled from GHCR
+# - Backend: built FROM base image (GHCR) + Docling layer (local)
 # =============================================================================
 # Use with: docker compose -f docker-compose.yml -f docker-compose.homelab.yml up -d
 # =============================================================================
 
 services:
   # ===========================================================================
-  # Backend Service - Use GHCR Image
+  # Backend Service - Build from GHCR base + Docling
+  # ===========================================================================
+  # CI pushes backend:base (no Docling) to GHCR
+  # Homelab builds FROM base and adds Docling layer
   # ===========================================================================
   backend:
-    # Override build with GHCR image
-    image: ghcr.io/medevs/portfolio-backend:latest
-    build: !reset null
-    pull_policy: always
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        - BASE_IMAGE=ghcr.io/medevs/portfolio-backend:base
+        - USE_DOCLING=true
+
+  # ===========================================================================
+  # Celery Worker - Build from GHCR base + Docling
+  # ===========================================================================
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        - BASE_IMAGE=ghcr.io/medevs/portfolio-backend:base
+        - USE_DOCLING=true
 
   # ===========================================================================
   # Frontend Service - Use GHCR Image

@@ -36,22 +36,19 @@ jobs:
             -t ghcr.io/${{ github.repository_owner }}/portfolio-frontend:latest \
             ./frontend
 
-      - name: Build backend image
-        run: |
-          # USE_DOCLING=false to avoid disk space issues on GitHub runners
-          # The app falls back to PyPDF/python-docx for document processing
-          docker build \
-            --build-arg USE_DOCLING=false \
-            -t ghcr.io/${{ github.repository_owner }}/portfolio-backend:latest \
-            ./backend
-
       - name: Push frontend image
         run: |
           docker push ghcr.io/${{ github.repository_owner }}/portfolio-frontend:latest
 
-      - name: Push backend image
+      # Build backend:base WITHOUT Docling (fits in GitHub runner disk space)
+      # Homelab will extend this with Docling layer
+      - name: Build and push backend base image
         run: |
-          docker push ghcr.io/${{ github.repository_owner }}/portfolio-backend:latest
+          docker build \
+            --build-arg USE_DOCLING=false \
+            -t ghcr.io/${{ github.repository_owner }}/portfolio-backend:base \
+            ./backend
+          docker push ghcr.io/${{ github.repository_owner }}/portfolio-backend:base
 
   deploy:
     runs-on: self-hosted
@@ -80,8 +77,15 @@ jobs:
           if [ -n "${{ secrets.LANGFUSE_ENCRYPTION_KEY }}" ]; then printf "LANGFUSE_ENCRYPTION_KEY=%s\n" "${{ secrets.LANGFUSE_ENCRYPTION_KEY }}" >> .env; fi
           if [ -n "${{ secrets.LANGFUSE_NEXTAUTH_URL }}" ]; then printf "LANGFUSE_NEXTAUTH_URL=%s\n" "${{ secrets.LANGFUSE_NEXTAUTH_URL }}" >> .env; fi
 
-          echo "�📥 Pulling latest GHCR images..."
-          docker compose -f docker-compose.yml -f docker-compose.homelab.yml --profile observability pull
+          echo "📥 Pulling images from GHCR..."
+          docker compose -f docker-compose.yml -f docker-compose.homelab.yml --profile observability pull frontend
+          docker pull ghcr.io/${{ github.repository_owner }}/portfolio-backend:base
+
+          echo "🔨 Building backend with Docling FROM base image..."
+          docker compose -f docker-compose.yml -f docker-compose.homelab.yml build \
+            --build-arg BASE_IMAGE=ghcr.io/${{ github.repository_owner }}/portfolio-backend:base \
+            --build-arg USE_DOCLING=true \
+            backend celery-worker
 
           echo "🔄 Recreating containers with homelab overrides..."
           # The ollama-init service will automatically pull required models
