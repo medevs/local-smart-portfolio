@@ -69,6 +69,7 @@ RUN pip install --user --no-cache-dir --prefer-binary \
 # =============================================================================
 RUN if [ "$USE_DOCLING" = "true" ]; then \
         pip install --user --no-cache-dir --prefer-binary \
+        "huggingface-hub>=0.24.0,<1.0" \
         transformers>=4.47.0 \
         docling>=2.14.0 \
         docling-core>=2.4.0 && \
