@@ -13,9 +13,9 @@ class SemanticSearchTool(BaseTool):
 
     async def execute(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
         """
-        Execute semantic search using ChromaDB.
+        Execute semantic search using ChromaDB vector similarity.
         """
-        logger.info(f"Semantic search: '{query}' (limit={limit})")
+        logger.info(f"[SEMANTIC] Query: '{query}' (limit={limit})")
 
         try:
             results = self.chroma.query(
@@ -36,9 +36,9 @@ class SemanticSearchTool(BaseTool):
                         "metadata": meta
                     })
 
-            logger.info(f"Semantic search found {len(documents)} results")
+            logger.info(f"[SEMANTIC] ChromaDB returned {len(documents)} results")
             return documents
 
         except Exception as e:
-            logger.error(f"Semantic search error: {e}")
+            logger.error(f"[SEMANTIC] Error: {e}")
             return []

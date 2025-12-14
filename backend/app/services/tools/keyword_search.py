@@ -1,57 +1,79 @@
+import re
 from typing import List, Dict, Any
-from sqlalchemy import select, text, or_
+from sqlalchemy import select, text, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import AsyncSessionLocal
 from app.db.models import Document
 from app.utils.logger import logger
 from .base import BaseTool
 
+# Common stop words to filter out
+STOP_WORDS = {'what', 'where', 'when', 'who', 'how', 'why', 'is', 'are', 'was', 'were',
+              'do', 'does', 'did', 'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on',
+              'at', 'to', 'for', 'of', 'with', 'by', 'about', 'can', 'could', 'would',
+              'should', 'have', 'has', 'had', 'be', 'been', 'being', 'this', 'that'}
+
 
 class KeywordSearchTool(BaseTool):
     name = "keyword_search"
     description = "Use this tool to find exact matches for terms, dates, product names, or IDs in the document content."
 
+    def _build_tsquery(self, query: str) -> str:
+        """
+        Build OR-based tsquery from natural language query.
+        Filters stop words and joins remaining terms with OR (|).
+        """
+        # Extract words, lowercase, filter stop words
+        words = re.findall(r'\b\w+\b', query.lower())
+        keywords = [w for w in words if w not in STOP_WORDS and len(w) > 2]
+
+        if not keywords:
+            # Fallback: use all words if filtering removed everything
+            keywords = [w for w in words if len(w) > 2]
+
+        # Join with OR operator for PostgreSQL tsquery
+        return ' | '.join(keywords) if keywords else query
+
     async def execute(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
         """
-        Execute full-text search using PostgreSQL's tsvector.
-        Falls back to ILIKE if tsvector returns no results.
+        Execute full-text search using PostgreSQL's tsvector with GIN index.
+        Uses OR-based to_tsquery for better natural language matching.
         """
-        logger.info(f"Keyword search: '{query}' (limit={limit})")
+        # Build OR-based query from natural language
+        tsquery_str = self._build_tsquery(query)
+        logger.info(f"[KEYWORD] Query: '{query}' -> tsquery: '{tsquery_str}'")
 
         try:
             async with AsyncSessionLocal() as session:
-                # First try: Full-text search with plainto_tsquery (more forgiving)
-                stmt = select(Document).where(
-                    text("tsv @@ plainto_tsquery('english', :query)")
-                ).params(query=query).limit(limit)
+                # Use to_tsquery with OR logic for better recall
+                # ts_rank orders by relevance
+                stmt = (
+                    select(
+                        Document,
+                        func.ts_rank(Document.tsv, func.to_tsquery('english', tsquery_str)).label('rank')
+                    )
+                    .where(Document.tsv.op('@@')(func.to_tsquery('english', tsquery_str)))
+                    .order_by(text('rank DESC'))
+                    .limit(limit)
+                )
 
                 result = await session.execute(stmt)
-                documents = result.scalars().all()
+                rows = result.all()
 
-                # Fallback: If no results, use simple ILIKE search
-                if not documents:
-                    logger.info(f"TSVECTOR returned 0, falling back to ILIKE search")
-                    # Split query into words and search for any match
-                    words = query.split()
-                    conditions = [Document.content.ilike(f"%{word}%") for word in words]
-
-                    stmt = select(Document).where(or_(*conditions)).limit(limit)
-                    result = await session.execute(stmt)
-                    documents = result.scalars().all()
-
-                logger.info(f"Keyword search found {len(documents)} results")
+                logger.info(f"[KEYWORD] TSVECTOR returned {len(rows)} results")
 
                 return [
                     {
-                        "id": str(doc.id),
-                        "content": doc.content,
+                        "id": str(row.Document.id),
+                        "content": row.Document.content,
                         "metadata": {
-                            "source": doc.source,
-                            "title": doc.title,
+                            "source": row.Document.source,
+                            "title": row.Document.title,
+                            "rank": float(row.rank) if row.rank else 0.0
                         }
                     }
-                    for doc in documents
+                    for row in rows
                 ]
         except Exception as e:
-            logger.error(f"Keyword search error: {e}")
+            logger.error(f"[KEYWORD] Error: {e}")
             return []
