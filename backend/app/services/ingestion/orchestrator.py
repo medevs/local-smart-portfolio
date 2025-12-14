@@ -93,18 +93,24 @@ class IngestionOrchestrator:
                     chroma_metadatas.append(metadata)
                     chroma_ids.append(chunk_id)
 
-                # 3. Save to Postgres
+                # 3. Save to Postgres with TSVECTOR
                 db.add_all(pg_documents)
                 await db.commit()
 
-                # Update TSVECTOR for the newly inserted docs
+                # Update TSVECTOR for keyword search
+                tsvector_count = 0
                 for doc in pg_documents:
-                    await db.execute(
-                        Document.__table__.update().
-                        where(Document.id == doc.id).
-                        values(tsv=func.to_tsvector('english', doc.content))
-                    )
+                    try:
+                        await db.execute(
+                            Document.__table__.update().
+                            where(Document.id == doc.id).
+                            values(tsv=func.to_tsvector('english', doc.content))
+                        )
+                        tsvector_count += 1
+                    except Exception as e:
+                        logger.warning(f"[INGEST] TSVECTOR failed for chunk {doc.id}: {e}")
                 await db.commit()
+                logger.info(f"[INGEST] TSVECTOR indexed {tsvector_count}/{len(pg_documents)} chunks")
 
                 # 4. Save to Chroma
                 self.chroma.add_documents(

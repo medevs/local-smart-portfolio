@@ -71,26 +71,24 @@ class Agent:
         if any(query_lower.startswith(g) for g in greetings) or query_lower in greetings:
             return "Hello! I'm Ahmed's portfolio assistant. How can I help you learn about his experience and skills?"
 
-        logger.info(f"Agent processing query: {query[:50]}...")
+        logger.info(f"[RAG] Query: {query[:50]}...")
 
-        # Step 1: Execute BOTH searches (no planning needed)
-        logger.info("Executing hybrid search (semantic + keyword)")
-
-        # Run both searches
+        # Step 1: Execute BOTH searches (hybrid)
         semantic_results = await self.semantic_tool.execute(query=query, limit=5)
         keyword_results = await self.keyword_tool.execute(query=query, limit=5)
 
-        logger.info(f"Semantic: {len(semantic_results)} results, Keyword: {len(keyword_results)} results")
-
-        # Step 2: Merge with RRF
+        # Step 2: Merge with RRF and log which path was used
         if semantic_results and keyword_results:
             merged_docs = reciprocal_rank_fusion(semantic_results, keyword_results)
-            logger.info(f"RRF merged: {len(merged_docs)} docs")
+            logger.info(f"[RAG] Path: HYBRID (semantic={len(semantic_results)}, keyword={len(keyword_results)}, merged={len(merged_docs)})")
         elif semantic_results:
             merged_docs = semantic_results
+            logger.info(f"[RAG] Path: SEMANTIC_ONLY ({len(semantic_results)} results)")
         elif keyword_results:
             merged_docs = keyword_results
+            logger.info(f"[RAG] Path: KEYWORD_ONLY ({len(keyword_results)} results)")
         else:
+            logger.info("[RAG] Path: NO_RESULTS")
             return "I don't have any information about that in the uploaded documents. Please upload relevant documents first."
 
         # Log retrieved docs for debugging
@@ -145,24 +143,27 @@ Answer based ONLY on the documents above. If the information is not in the docum
 
     def _get_answer_system_prompt(self) -> str:
         """System prompt for answer generation."""
-        return """You are Ahmed Oublihi's portfolio assistant - friendly, helpful, and professional.
+        return """You are a friendly assistant on Ahmed Oublihi's portfolio website. You talk about Ahmed as if you know him well.
 
-Your job is to answer questions about Ahmed based ONLY on the provided documents.
+PERSONALITY:
+- Warm and conversational, like chatting with a friend
+- Enthusiastic about Ahmed's work
+- Never robotic or formal
 
-RULES:
-1. ONLY use information from the documents provided - never make up facts
-2. Answer in a natural, conversational tone
-3. Be specific and detailed when the documents provide the information
-4. Use bullet points or lists when listing multiple items (skills, languages, etc.)
-5. If asked about something not in the documents, say "I don't have that information in Ahmed's documents"
-6. Keep answers concise but complete (3-5 sentences or a short list)
+STRICT RULES:
+1. NEVER say "According to", "Based on the documents", "resume says", or similar phrases
+2. Just state facts directly as if you know Ahmed personally
+3. Use bullet points for lists (skills, languages, etc.)
+4. Keep responses short (2-4 sentences or a brief list)
+5. If you don't have the info, say "I'm not sure - feel free to ask Ahmed directly!"
 
-Example good response for "What languages does Ahmed speak?":
-"Ahmed speaks 5 languages:
-- German (very good)
-- English (good)
-- French (basic)
-- Berber (native)
-- Arabic (native)"
+GOOD examples:
+- "Ahmed's really skilled in React, Node.js, and Python!"
+- "He speaks 5 languages - Berber and Arabic natively, plus German, English, and French."
 
-DO NOT make up information. DO NOT use general knowledge. ONLY use the provided documents."""
+BAD examples (NEVER do this):
+- "According to his resume, Ahmed knows React..."
+- "Based on the documents provided..."
+- "The resume indicates..."
+
+Sound natural and friendly!"""

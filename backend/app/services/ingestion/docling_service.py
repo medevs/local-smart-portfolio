@@ -3,14 +3,17 @@ from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 from app.utils.logger import logger
 
-# Check if Docling is available (it's heavy and optional)
+# Check if Docling is available at import time
 DOCLING_AVAILABLE = False
+DOCLING_IMPORT_ERROR = None
 try:
     from docling.document_converter import DocumentConverter
     from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
     DOCLING_AVAILABLE = True
-except ImportError:
-    logger.warning("Docling not available, using fallback methods only")
+    logger.info("[DOCLING] Library loaded successfully")
+except ImportError as e:
+    DOCLING_IMPORT_ERROR = str(e)
+    logger.info(f"[DOCLING] Not installed: {e}")
 
 
 @dataclass
@@ -39,11 +42,20 @@ class DoclingIngestionService:
             use_docling: Whether to try Docling first (slower but better quality)
         """
         self.max_tokens = max_tokens
-        self.use_docling = use_docling and DOCLING_AVAILABLE
         self._converter = None
         self._chunker = None
         self._tokenizer = None
-        logger.info(f"DoclingIngestionService initialized (docling={'enabled' if self.use_docling else 'disabled'})")
+
+        # Determine if Docling should be used
+        if use_docling and DOCLING_AVAILABLE:
+            self.use_docling = True
+            logger.info("[DOCLING] ACTIVE - Using Docling for document processing")
+        elif use_docling and not DOCLING_AVAILABLE:
+            self.use_docling = False
+            logger.info(f"[DOCLING] FALLBACK - Requested but not available: {DOCLING_IMPORT_ERROR}")
+        else:
+            self.use_docling = False
+            logger.info("[DOCLING] FALLBACK - Using PyPDF/python-docx (USE_DOCLING=false)")
 
     def _get_converter(self):
         """Lazy-load Docling DocumentConverter with optimized settings."""
@@ -231,51 +243,53 @@ class DoclingIngestionService:
 
         Returns chunks with 'method' in metadata showing which strategy was used.
         """
-        logger.info(f"Processing document: {file_path}")
         # Use original filename for metadata, not temp file name
         filename = original_filename or os.path.basename(file_path)
+        logger.info(f"[INGEST] Processing: {filename}")
 
         # Fast path: Skip Docling entirely (default)
         if not self.use_docling:
-            logger.info(f"Using fast fallback extraction (Docling disabled)")
+            logger.info(f"[INGEST] Path: FALLBACK (Docling disabled)")
             try:
                 content, method = self._read_document_fallback(file_path)
                 if content and content.strip():
                     chunks = self._chunk_with_langchain(content)
-                    logger.info(f"[SUCCESS] Used {method} strategy for {filename}")
+                    logger.info(f"[INGEST] Complete: {len(chunks)} chunks via {method}")
                     return self._finalize_chunks(chunks, filename, method)
             except Exception as e:
-                logger.error(f"[FAILED] Fallback extraction failed: {e}")
+                logger.error(f"[INGEST] Failed: {e}")
                 raise ValueError(f"Could not process document: {e}")
 
         # Slow path: Try Docling first (if enabled)
+        logger.info(f"[INGEST] Path: DOCLING (enabled)")
         markdown, docling_doc = self._read_document_with_docling(file_path)
 
         if markdown and docling_doc:
             chunks = self._chunk_with_hybrid(markdown, docling_doc)
             if chunks:
-                method = "hybrid"
-                logger.info(f"[SUCCESS] Used {method} strategy for {filename}")
+                method = "docling_hybrid"
+                logger.info(f"[INGEST] Complete: {len(chunks)} chunks via {method}")
                 return self._finalize_chunks(chunks, filename, method)
 
             # Strategy 2: Docling worked but HybridChunker failed
             chunks = self._chunk_with_langchain(markdown)
-            method = "fallback_langchain"
-            logger.info(f"[SUCCESS] Used {method} strategy for {filename}")
+            method = "docling_langchain"
+            logger.info(f"[INGEST] Complete: {len(chunks)} chunks via {method}")
             return self._finalize_chunks(chunks, filename, method)
 
         # Strategy 3: Docling failed, use fallback extraction
+        logger.info(f"[INGEST] Docling failed, trying fallback")
         try:
             content, method = self._read_document_fallback(file_path)
             if not content or not content.strip():
                 raise ValueError("No content extracted")
 
             chunks = self._chunk_with_langchain(content)
-            logger.info(f"[SUCCESS] Used {method} strategy for {filename}")
+            logger.info(f"[INGEST] Complete: {len(chunks)} chunks via {method}")
             return self._finalize_chunks(chunks, filename, method)
 
         except Exception as e:
-            logger.error(f"[FAILED] All strategies failed for {filename}: {e}")
+            logger.error(f"[INGEST] All strategies failed for {filename}: {e}")
             raise ValueError(f"Could not process document: {e}")
 
     def _finalize_chunks(self, chunks: List[Dict[str, Any]], source: str, method: str) -> List[Dict[str, Any]]:
