@@ -69,10 +69,10 @@ RUN pip install --user --no-cache-dir --prefer-binary \
 # =============================================================================
 RUN if [ "$USE_DOCLING" = "true" ]; then \
         pip install --user --no-cache-dir --prefer-binary \
-        "huggingface-hub>=0.24.0,<1.0" \
         transformers>=4.47.0 \
         docling>=2.14.0 \
         docling-core>=2.4.0 && \
+        pip install --user --no-cache-dir --force-reinstall "huggingface-hub>=0.24.0,<1.0" && \
         pip uninstall -y opencv-python 2>/dev/null || true && \
         pip install --user --no-cache-dir opencv-python-headless; \
     else \
