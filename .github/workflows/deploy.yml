@@ -38,7 +38,12 @@ jobs:
 
       - name: Build backend image
         run: |
-          docker build -t ghcr.io/${{ github.repository_owner }}/portfolio-backend:latest ./backend
+          # USE_DOCLING=false to avoid disk space issues on GitHub runners
+          # The app falls back to PyPDF/python-docx for document processing
+          docker build \
+            --build-arg USE_DOCLING=false \
+            -t ghcr.io/${{ github.repository_owner }}/portfolio-backend:latest \
+            ./backend
 
       - name: Push frontend image
         run: |

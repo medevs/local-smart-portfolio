@@ -1,15 +1,18 @@
 # =============================================================================
 # Backend Dockerfile - FastAPI Application
 # =============================================================================
-# Two-stage build with Docling support (optional via USE_DOCLING env var)
-# First build takes ~10-15 minutes, subsequent builds use cache (~2-3 min)
+# Two-stage build with Docling support (optional via USE_DOCLING build arg)
+# Set USE_DOCLING=false to skip Docling install (saves ~2GB disk, uses PyPDF fallback)
 # =============================================================================
 
 FROM python:3.11-slim-bookworm AS builder
 
+# Build arg to control Docling installation (default: false for smaller images)
+ARG USE_DOCLING=false
+
 WORKDIR /app
 
-# Install build dependencies (including those needed for Docling)
+# Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
@@ -52,29 +55,40 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     psycopg2-binary>=2.9.9
 
 # =============================================================================
-# Layer 2: Docling dependencies (slow, ~8-10 min, cached after first build)
+# Layer 2: Docling dependencies (optional, ~8-10 min, ~2GB disk)
+# Only installed if USE_DOCLING=true
 # =============================================================================
 RUN --mount=type=cache,target=/root/.cache/pip \
     --mount=type=cache,target=/root/.cache/huggingface \
-    pip install --user --prefer-binary \
-    transformers>=4.47.0 \
-    docling>=2.14.0 \
-    docling-core>=2.4.0
+    if [ "$USE_DOCLING" = "true" ]; then \
+        pip install --user --prefer-binary \
+        transformers>=4.47.0 \
+        docling>=2.14.0 \
+        docling-core>=2.4.0; \
+    else \
+        echo "Skipping Docling install (USE_DOCLING=$USE_DOCLING)"; \
+    fi
 
 # =============================================================================
 # Production stage
 # =============================================================================
 FROM python:3.11-slim-bookworm
 
+# Re-declare build arg for production stage
+ARG USE_DOCLING=false
+
 WORKDIR /app
 
-# Install runtime dependencies (Tesseract for Docling OCR, curl for health check)
+# Install runtime dependencies (curl for health check, tesseract only if Docling enabled)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-    tesseract-ocr \
-    tesseract-ocr-eng \
-    libgl1 \
-    libglib2.0-0 \
+    && if [ "$USE_DOCLING" = "true" ]; then \
+        apt-get install -y --no-install-recommends \
+        tesseract-ocr \
+        tesseract-ocr-eng \
+        libgl1 \
+        libglib2.0-0; \
+    fi \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy Python dependencies from builder
