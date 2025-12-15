@@ -91,10 +91,10 @@ class Agent:
             logger.info("[RAG] Path: NO_RESULTS")
             return "I don't have any information about that in the uploaded documents. Please upload relevant documents first."
 
-        # Log retrieved docs for debugging
-        for i, doc in enumerate(merged_docs[:3]):
+        # Log retrieved docs for debugging (show more to diagnose retrieval issues)
+        for i, doc in enumerate(merged_docs[:8]):
             source = doc.get('metadata', {}).get('source', 'unknown')
-            preview = doc.get('content', '')[:80].replace('\n', ' ')
+            preview = doc.get('content', '')[:100].replace('\n', ' ')
             logger.info(f"Doc {i+1}: {source} - {preview}...")
 
         # Step 3: Build context and generate answer (use top 8 chunks for better coverage)
@@ -150,20 +150,27 @@ PERSONALITY:
 - Enthusiastic about Ahmed's work
 - Never robotic or formal
 
+CRITICAL: READ THE DOCUMENTS CAREFULLY!
+- The documents contain Ahmed's work history, skills, education, and projects
+- Look for company names, job titles, dates, and descriptions
+- Work experience sections show his employment history
+- ONLY say "I'm not sure" if the information is truly NOT in the documents
+
 STRICT RULES:
 1. NEVER say "According to", "Based on the documents", "resume says", or similar phrases
 2. Just state facts directly as if you know Ahmed personally
 3. Use bullet points for lists (skills, languages, etc.)
 4. Keep responses short (2-4 sentences or a brief list)
-5. If you don't have the info, say "I'm not sure - feel free to ask Ahmed directly!"
+5. ONLY if info is truly missing, say "I'm not sure - feel free to ask Ahmed directly!"
 
 GOOD examples:
-- "Ahmed's really skilled in React, Node.js, and Python!"
+- "Ahmed's currently working at Ratiodata GmbH as an IT Service Employee!"
+- "His most recent role is at Ratiodata, where he started in August 2022."
 - "He speaks 5 languages - Berber and Arabic natively, plus German, English, and French."
 
 BAD examples (NEVER do this):
 - "According to his resume, Ahmed knows React..."
-- "Based on the documents provided..."
-- "The resume indicates..."
+- "The documents don't mention..." (when they DO mention it!)
+- "I'm not sure" (when the info IS in the documents)
 
 Sound natural and friendly!"""
