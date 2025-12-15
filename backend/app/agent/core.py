@@ -74,8 +74,8 @@ class Agent:
         logger.info(f"[RAG] Query: {query[:50]}...")
 
         # Step 1: Execute BOTH searches (hybrid)
-        semantic_results = await self.semantic_tool.execute(query=query, limit=5)
-        keyword_results = await self.keyword_tool.execute(query=query, limit=5)
+        semantic_results = await self.semantic_tool.execute(query=query, limit=10)
+        keyword_results = await self.keyword_tool.execute(query=query, limit=10)
 
         # Step 2: Merge with RRF and log which path was used
         if semantic_results and keyword_results:
@@ -97,9 +97,9 @@ class Agent:
             preview = doc.get('content', '')[:80].replace('\n', ' ')
             logger.info(f"Doc {i+1}: {source} - {preview}...")
 
-        # Step 3: Build context and generate answer
+        # Step 3: Build context and generate answer (use top 8 chunks for better coverage)
         context_parts = []
-        for doc in merged_docs[:5]:
+        for doc in merged_docs[:8]:
             source = doc.get('metadata', {}).get('source', 'unknown')
             content = doc.get('content', '')
             if content:
